@@ -1,0 +1,8 @@
+ports:
+  entries:
+    - name: COM4
+      baudRate: 9600
+      dataBits: 8
+      parity: NONE
+      stopBits: STOPBITS_1
+
