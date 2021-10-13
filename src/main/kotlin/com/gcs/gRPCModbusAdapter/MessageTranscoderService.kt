@@ -1,7 +1,5 @@
 package com.gcs.gRPCModbusAdapter
 
-import com.gcs.gRPCModbusAdapter.config.SerialPortConfig
-import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Service
 import javax.annotation.PostConstruct
 

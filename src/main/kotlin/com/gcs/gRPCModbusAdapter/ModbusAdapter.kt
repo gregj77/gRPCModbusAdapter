@@ -1,7 +1,6 @@
 package com.gcs.gRPCModbusAdapter
 
 import com.gcs.gRPCModbusAdapter.serialPort.SerialCommunicationService
-import com.gcs.gRPCModbusAdapter.serialPort.SerialPortDriver
 import io.reactivex.rxjava3.core.Observable
 import org.springframework.boot.CommandLineRunner
 import org.springframework.boot.autoconfigure.SpringBootApplication

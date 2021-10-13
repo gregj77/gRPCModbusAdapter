@@ -3,7 +3,6 @@ package com.gcs.gRPCModbusAdapter.serialPort
 import com.gcs.gRPCModbusAdapter.config.Ports
 import gnu.io.RXTXPort
 import io.reactivex.rxjava3.core.Observable
-import io.reactivex.rxjava3.core.Scheduler
 import io.reactivex.rxjava3.disposables.Disposable
 import io.reactivex.rxjava3.schedulers.Schedulers
 import org.springframework.stereotype.Service
