@@ -1,9 +1,8 @@
 package com.gcs.gRPCModbusAdapter.serialPort
 
-import com.gcs.gRPCModbusAdapter.ModbusAdapter
 import com.gcs.gRPCModbusAdapter.config.SerialPortConfig
-import gnu.io.CommPortIdentifier
 import gnu.io.PortInUseException
+import gnu.io.RXTXPort
 import gnu.io.SerialPortEvent
 import io.reactivex.rxjava3.core.*
 import io.reactivex.rxjava3.disposables.CompositeDisposable
@@ -21,11 +20,11 @@ interface SerialPortDriver : Disposable {
     val totalBytesRead: ULong
     val totalBytesWritten: ULong
     val isRunning: Boolean
-    fun sendDataAndAwaitResponse(dataStream: Observable<ByteArray>) : Observable<Byte>
+    fun establishStream(dataStream: Observable<ByteArray>) : Observable<Byte>
 }
 
 
-class SerialPortDriverImpl(val cfg: SerialPortConfig, val scheduler: Scheduler) : SerialPortDriver {
+class SerialPortDriverImpl(val cfg: SerialPortConfig, val scheduler: Scheduler, serialPortFactory: (String) -> RXTXPort) : SerialPortDriver {
     private val logger = KotlinLogging.logger {}
 
     override val name: String
@@ -48,57 +47,54 @@ class SerialPortDriverImpl(val cfg: SerialPortConfig, val scheduler: Scheduler) 
 
     init {
         logger.info { "Initializing serial port driver with settings $cfg" }
+        val initialSubscription = requestStream
+            .flatMap { it }
+            .subscribeOn(scheduler)
+            .observeOn(scheduler)
+            .subscribe {
+                it.outDataStream.onError(IllegalStateException("port ${cfg.name} is not yet initialized!"))
+            }
         subscription = Observable.create<Observable<Byte>> { observer ->
             try {
-                val portId = (CommPortIdentifier
-                    .getPortIdentifiers()
-                    .asSequence() as Sequence<CommPortIdentifier>)
-                    .filter { it.portType == CommPortIdentifier.PORT_SERIAL && it.name == cfg.name}
-                    .take(1)
-                    .firstOrNull()
+                val serialPort = serialPortFactory(cfg.name)
+                logger.info { "setting port parameters..." }
+                serialPort.setSerialPortParams(cfg.baudRate, cfg.dataBits, cfg.stopBits.value, cfg.parity.value)
 
-                if (portId == null) {
-                    logger.error { "can't find serial port ${cfg.name} installed on the system" }
-                    observer.onError(IllegalArgumentException("Port ${cfg.name} not found!"))
-                } else {
-                    logger.info { "opening port ${cfg.name}..." }
-                    val serialPort = portId.open(ModbusAdapter::class.simpleName, 1_000)
-                    logger.info { "setting port parameters..." }
-                    serialPort.setSerialPortParams(cfg.baudRate, cfg.dataBits, cfg.stopBits.value, cfg.parity.value)
+                val inputByteStream = serialPort.inputStream
+                val outputByteStream = serialPort.outputStream
 
-                    val inputByteStream = serialPort.inputStream
-                    val outputByteStream = serialPort.outputStream
+                val activeDataEmitterRef: AtomicReference<Emitter<Byte>?> = AtomicReference(null)
 
-                    val activeDataEmitterRef: AtomicReference<Emitter<Byte>?> = AtomicReference(null)
-
-                    val commandProcessingToken = requestStream
-                        .flatMap { it }
-                        .concatMap {
-                            it.processCommunicationStream(activeDataEmitterRef, outputByteStream::write)
-                        }
-                        .observeOn(scheduler)
-                        .subscribe()
-
-                    logger.info { "registering data listener..." }
-
-                    with (serialPort) {
-                        addEventListener { onDataReceived(it, inputByteStream, activeDataEmitterRef, ByteArray(32)) }
-                        notifyOnDataAvailable(true)
-                        notifyOnCTS(true)
-                        notifyOnDSR(true)
-                        notifyOnRingIndicator(true)
+                val commandProcessingToken = requestStream
+                    .flatMap { it }
+                    .concatMap {
+                        it.processCommunicationStream(activeDataEmitterRef, outputByteStream::write)
                     }
+                    .observeOn(scheduler)
+                    .subscribe()
 
-                    running.set(true)
+                logger.info { "registering data listener..." }
 
-                    observer.setCancellable {
-                        commandProcessingToken.dispose()
-                        logger.info { "closing serial port due to unsubscribe event" }
-                        running.set(false)
-                        serialPort.removeEventListener()
-                        serialPort.close()
-                    }
+                with (serialPort) {
+                    addEventListener { onDataReceived(it, inputByteStream, activeDataEmitterRef, ByteArray(32)) }
+                    notifyOnDataAvailable(true)
+                    notifyOnCTS(true)
+                    notifyOnDSR(true)
+                    notifyOnRingIndicator(true)
                 }
+
+                running.set(true)
+
+                observer.setCancellable {
+                    commandProcessingToken.dispose()
+                    logger.info { "closing serial port due to unsubscribe event" }
+                    running.set(false)
+                    serialPort.removeEventListener()
+                    serialPort.close()
+                }
+
+                logger.debug { "all is initialized - disposing initial subscription" }
+                initialSubscription.dispose()
 
             } catch (err: Exception) {
                 observer.onError(err)
@@ -106,20 +102,21 @@ class SerialPortDriverImpl(val cfg: SerialPortConfig, val scheduler: Scheduler) 
         }
             .retryWhen { errorStream ->
                 return@retryWhen errorStream
-                    .take(1)
-                    .map { error ->
+                    .flatMap {
+                        error ->
                         val canRetry = error is PortInUseException
                         logger.warn { "got error ${error.message} <${error.javaClass.name}> retry: $canRetry" }
-                        return@map canRetry
+                        if (canRetry)  Observable.just(1).delay(5_000L, TimeUnit.MILLISECONDS, scheduler)
+                        else Observable.error(error)
                     }
-                    .filter{ canRetry -> canRetry }
-                    .flatMap { Observable.just(Unit).delay(5_000L, TimeUnit.SECONDS) }
             }
-            .subscribe({}, { err -> logger.error { "cannot initialize serial port ${cfg.name} - ${err.message} <${err.javaClass.name}>" }})
+            .subscribe(
+                {},
+                { err -> logger.error { "cannot initialize serial port ${cfg.name} - ${err.message} <${err.javaClass.name}>" } })
     }
 
 
-    override fun sendDataAndAwaitResponse(dataStream: Observable<ByteArray>): Observable<Byte> {
+    override fun establishStream(dataStream: Observable<ByteArray>): Observable<Byte> {
         return Observable.create<Byte?> { observer ->
             val cmdId = id.incrementAndGet()
             logger.debug { "received new command $cmdId" }
@@ -173,6 +170,7 @@ private data class CommunicationRequest(val id: Int, val inDataStream: Observabl
                     logger.debug { "command $id - both up&down streams closed, releasing all resources..." }
                     requestObserver.onComplete()
                     cleanup.dispose()
+                    activeDataEmitterRef.set(null)
                 }
             }
             outDataStream.setCancellable(tryCloseStream)
