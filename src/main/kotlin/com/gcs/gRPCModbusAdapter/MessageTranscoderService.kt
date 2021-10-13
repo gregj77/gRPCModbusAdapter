@@ -85,6 +85,7 @@ class MessageTranscoderService() {
         test[7] = 0
         test[8] = 0
         val crc = calculateCRC(test)
+        println(crc)
 
         var generated = ByteArray(11) {
             when (it) {

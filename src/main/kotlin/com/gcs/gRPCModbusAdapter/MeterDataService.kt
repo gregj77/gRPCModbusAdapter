@@ -5,7 +5,6 @@ import gnu.io.SerialPort
 import gnu.io.SerialPortEvent
 import gnu.io.SerialPortEventListener
 import mu.KotlinLogging
-import org.springframework.stereotype.Service
 import java.io.InputStream
 import java.io.OutputStream
 import javax.annotation.PreDestroy
