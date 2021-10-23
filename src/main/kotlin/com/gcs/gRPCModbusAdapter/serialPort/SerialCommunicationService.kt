@@ -6,6 +6,7 @@ import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.disposables.Disposable
 import io.reactivex.rxjava3.schedulers.Schedulers
 import org.springframework.stereotype.Service
+import java.util.function.Function
 import java.util.stream.Collectors
 import javax.annotation.PreDestroy
 
@@ -20,7 +21,7 @@ class SerialCommunicationService(configuration: Ports, serialPortFactory: (Strin
             .entries
             .stream()
             .map { SerialPortDriverImpl(it, scheduler, serialPortFactory) }
-            .collect(Collectors.toMap({ p -> p.name}, { p -> p }))
+            .collect(Collectors.toMap(SerialPortDriver::name, Function.identity()))
 
     }
 

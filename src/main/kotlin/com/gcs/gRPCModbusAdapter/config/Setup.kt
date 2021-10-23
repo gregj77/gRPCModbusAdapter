@@ -12,11 +12,9 @@ class Setup {
     private val logger = KotlinLogging.logger {}
 
     @Bean
-    fun serialPortFactory(): (String) -> RXTXPort {
+    fun serialPortFactory(commPorts: Array<CommPortIdentifier>): (String) -> RXTXPort {
         return { portName ->
-            val portId = (CommPortIdentifier
-                .getPortIdentifiers()
-                .asSequence() as Sequence<CommPortIdentifier>)
+            val portId = commPorts
                 .filter { it.portType == CommPortIdentifier.PORT_SERIAL && it.name == portName}
                 .take(1)
                 .firstOrNull()
@@ -27,5 +25,12 @@ class Setup {
             }
             portId.open(ModbusAdapter::class.simpleName, 0)
         }
+    }
+
+    @Bean
+    fun commPortEnumerator() :Array<CommPortIdentifier> {
+        return (CommPortIdentifier.getPortIdentifiers() as Sequence<CommPortIdentifier>)
+            .toList()
+            .toTypedArray()
     }
 }

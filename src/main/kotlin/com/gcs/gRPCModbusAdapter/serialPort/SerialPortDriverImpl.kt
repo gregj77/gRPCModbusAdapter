@@ -4,6 +4,7 @@ import com.gcs.gRPCModbusAdapter.config.SerialPortConfig
 import gnu.io.PortInUseException
 import gnu.io.RXTXPort
 import gnu.io.SerialPortEvent
+import gnu.io.SerialPortEventListener
 import io.reactivex.rxjava3.core.*
 import io.reactivex.rxjava3.disposables.CompositeDisposable
 import io.reactivex.rxjava3.disposables.Disposable
@@ -75,12 +76,16 @@ class SerialPortDriverImpl(val cfg: SerialPortConfig, val scheduler: Scheduler, 
 
                 logger.info { "registering data listener..." }
 
+                val onDataReceivedCallbackHandler = SerialPortEventListener {
+                    onDataReceived(it, inputByteStream, activeDataEmitterRef, ByteArray(32))
+                }
+
                 with (serialPort) {
-                    addEventListener { onDataReceived(it, inputByteStream, activeDataEmitterRef, ByteArray(32)) }
+                    addEventListener(onDataReceivedCallbackHandler)
                     notifyOnDataAvailable(true)
-                    notifyOnCTS(true)
-                    notifyOnDSR(true)
-                    notifyOnRingIndicator(true)
+//                    notifyOnCTS(true)
+//                    notifyOnDSR(true)
+//                    notifyOnRingIndicator(true)
                 }
 
                 running.set(true)
@@ -130,6 +135,7 @@ class SerialPortDriverImpl(val cfg: SerialPortConfig, val scheduler: Scheduler, 
     override fun dispose() {
         logger.info { "Shutting down serial port service" }
         subscription.dispose()
+        running.set(false)
     }
 
     override fun isDisposed(): Boolean = subscription.isDisposed
