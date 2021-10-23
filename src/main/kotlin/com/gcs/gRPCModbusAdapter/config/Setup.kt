@@ -29,7 +29,9 @@ class Setup {
 
     @Bean
     fun commPortEnumerator() :Array<CommPortIdentifier> {
-        return (CommPortIdentifier.getPortIdentifiers() as Sequence<CommPortIdentifier>)
+        return CommPortIdentifier.getPortIdentifiers()
+            .asSequence()
+            .map { it as CommPortIdentifier }
             .toList()
             .toTypedArray()
     }

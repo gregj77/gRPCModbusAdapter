@@ -9,9 +9,9 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>com.gcs</groupId>
-    <artifactId>gRPCModbusAdapter</artifactId>
+    <artifactId>grpc-modbus-adapter</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>gRPCModbusAdapter</name>
+    <name>grpc-modbus-adapter</name>
     <description>RS485 Modbus to gRPC adapter</description>
     <properties>
         <java.version>11</java.version>
@@ -92,6 +92,11 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <layers>
+                        <enabled>true</enabled>
+                    </layers>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.jetbrains.kotlin</groupId>
@@ -132,6 +137,75 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <plugin>
+                <artifactId>exec-maven-plugin</artifactId>
+                <groupId>org.codehaus.mojo</groupId>
+                <version>3.0.0</version>
+                <executions>
+                    <execution>
+                        <id>Generate layer directories</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>java</executable>
+                            <workingDirectory>${project.build.directory}</workingDirectory>
+                            <arguments>
+                                <argument>-Djarmode=layertools</argument>
+                                <argument>-jar</argument>
+                                <argument>${project.artifactId}-${project.version}.jar</argument>
+                                <argument>extract</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>io.fabric8</groupId>
+                <artifactId>docker-maven-plugin</artifactId>
+                <version>0.37.0</version>
+                <configuration>
+                    <!--<dockerHost>tcp://REMOTE_IP:2375</dockerHost> -->
+                    <images>
+                        <image>
+                            <name>${project.name}:${project.version}</name>
+                            <alias>${project.name}-dockerimage</alias>
+                            <build>
+                                <dockerFileDir>${project.basedir}</dockerFileDir>
+                            </build>
+                            <!--run>
+                                <namingStrategy>alias</namingStrategy>
+                                <dependsOn>
+                                    <container>mongo</container>
+                                </dependsOn>
+
+                                <links>
+                                    <link>mongo</link>
+                                </links>
+                                <ports>
+                                    <port>8080:8080</port>
+                                </ports>
+                            </run-->
+                        </image>
+                    </images>
+                </configuration>
+
+                <executions>
+                    <execution>
+                        <id>start</id>
+                        <phase>pre-integration-test</phase>
+                        <goals>
+                            <goal>stop</goal>
+                            <goal>build</goal>
+                            <goal>start</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
         </plugins>
     </build>
 
