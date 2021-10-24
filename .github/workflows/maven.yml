@@ -22,8 +22,13 @@ jobs:
         java-version: '11'
         distribution: 'adopt'
         cache: maven
+    - name: Log-in to docker repository
+      uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
+      with:
+        username: ${{ secrets.DOCKER_USER }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
     - name: Build with Maven
-      run: mvn -B package verify sonar:sonar docker:build --file pom.xml -Dsonar.projectKey=gregj77_gRPCModbusAdapter -Dsonar.organization=gregj77 -Dsonar.host.url=https://sonarcloud.io -Dsonar.login=$SONAR_TOKEN -Dsonar.coverage.jacoco.xmlReportPaths=./target/site/jacoco/jacoco.xml
+      run: mvn -B package verify sonar:sonar docker:build docker:push --file pom.xml -Dsonar.projectKey=gregj77_gRPCModbusAdapter -Dsonar.organization=gregj77 -Dsonar.host.url=https://sonarcloud.io -Dsonar.login=$SONAR_TOKEN -Dsonar.coverage.jacoco.xmlReportPaths=./target/site/jacoco/jacoco.xml
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}    

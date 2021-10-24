@@ -29,10 +29,17 @@ class Setup {
 
     @Bean
     fun commPortEnumerator() :Array<CommPortIdentifier> {
-        return CommPortIdentifier.getPortIdentifiers()
+        logger.info { "looking up available serial ports...." }
+        val result = CommPortIdentifier.getPortIdentifiers()
             .asSequence()
-            .map { it as CommPortIdentifier }
+            .map {
+                val result = it as CommPortIdentifier
+                logger.info { "found serial port ${result.name}" }
+                return@map result
+            }
             .toList()
             .toTypedArray()
+        logger.info { "found ${result.size} port(s)" }
+        return result
     }
 }

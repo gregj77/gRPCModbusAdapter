@@ -185,7 +185,7 @@
                     <!--<dockerHost>tcp://REMOTE_IP:2375</dockerHost> -->
                     <images>
                         <image>
-                            <name>${project.name}:${project.version}</name>
+                            <name>pejs77/${project.name}:${project.version}</name>
                             <alias>${project.name}-dockerimage</alias>
                             <build>
                                 <dockerFileDir>${project.basedir}</dockerFileDir>
