@@ -18,23 +18,28 @@ jobs:
         java-version: '11'
         distribution: 'adopt'
         cache: maven
+
+    - name: Update Version to release
+      if: github.ref == 'refs/heads/main'
+      run: mvn -B versions:set -DnewVersion=1.0.$GITHUB_RUN_NUMBER
+
+    - name: Update Version to snapshot
+      if: github.ref != 'refs/heads/main'
+      run: mvn -B versions:set -DnewVersion=1.0.$GITHUB_RUN_NUMBER-SNAPSHOT
+
+    - name: Build with Maven
+      run: mvn -B package verify sonar:sonar --file pom.xml -Dsonar.projectKey=gregj77_gRPCModbusAdapter -Dsonar.organization=gregj77 -Dsonar.host.url=https://sonarcloud.io -Dsonar.login=$SONAR_TOKEN -Dsonar.coverage.jacoco.xmlReportPaths=./target/site/jacoco/jacoco.xml
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
     - name: Log-in to docker repository
       if: github.ref == 'refs/heads/main'
       uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
       with:
         username: ${{ secrets.DOCKER_USER }}
         password: ${{ secrets.DOCKER_PASSWORD }}
-    - name: Update Version to release
-      if: github.ref == 'refs/heads/main'
-      run: mvn -B versions:set -DnewVersion=1.0.$GITHUB_RUN_NUMBER
-    - name: Update Version to snapshot
-      if: github.ref != 'refs/heads/main'
-      run: mvn -B versions:set -DnewVersion=1.0.$GITHUB_RUN_NUMBER-SNAPSHOT    
-    - name: Build with Maven
-      run: mvn -B package verify sonar:sonar --file pom.xml -Dsonar.projectKey=gregj77_gRPCModbusAdapter -Dsonar.organization=gregj77 -Dsonar.host.url=https://sonarcloud.io -Dsonar.login=$SONAR_TOKEN -Dsonar.coverage.jacoco.xmlReportPaths=./target/site/jacoco/jacoco.xml
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}    
+
     - name: Build and push docker
       if: github.ref == 'refs/heads/main'
       run: mvn -B docker:build docker:push

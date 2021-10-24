@@ -6,7 +6,7 @@
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>2.5.4</version>
-        <relativePath/> <!-- lookup parent from repository -->
+        <relativePath/>
     </parent>
     <groupId>com.gcs</groupId>
     <artifactId>grpc-modbus-adapter</artifactId>
@@ -182,7 +182,6 @@
                 <artifactId>docker-maven-plugin</artifactId>
                 <version>0.37.0</version>
                 <configuration>
-                    <!--<dockerHost>tcp://REMOTE_IP:2375</dockerHost> -->
                     <images>
                         <image>
                             <name>pejs77/${project.name}:${project.version}</name>
@@ -190,36 +189,12 @@
                             <build>
                                 <dockerFileDir>${project.basedir}</dockerFileDir>
                             </build>
-                            <!--run>
-                                <namingStrategy>alias</namingStrategy>
-                                <dependsOn>
-                                    <container>mongo</container>
-                                </dependsOn>
-
-                                <links>
-                                    <link>mongo</link>
-                                </links>
-                                <ports>
-                                    <port>8080:8080</port>
-                                </ports>
-                            </run-->
                         </image>
                     </images>
                 </configuration>
 
-                <executions>
-                    <execution>
-                        <id>start</id>
-                        <phase>pre-integration-test</phase>
-                        <goals>
-                            <goal>stop</goal>
-                            <goal>build</goal>
-                            <goal>start</goal>
-                        </goals>
-                    </execution>
-                </executions>
+                <executions/>
             </plugin>
-
         </plugins>
     </build>
 
