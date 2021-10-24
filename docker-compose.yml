@@ -1,0 +1,23 @@
+version: "3.3"
+services:
+  rs485-to-grpc:
+    image: pejs77/grpc-modbus-adapter:1.0.17
+    ports:
+      - "8080:8080"
+      - "9111:9111"
+    environment:
+      - "SPRING_PROFILES_ACTIVE=prod"
+    volumes:
+      - "./application-prod.yaml:/BOOT-INF/classes/application-prod.yaml"
+    devices:
+      - "/dev/ttyUSB0:/dev/ttyUSB0"
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+

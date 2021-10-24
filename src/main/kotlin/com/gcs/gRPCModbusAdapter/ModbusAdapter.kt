@@ -19,7 +19,7 @@ fun main(args: Array<String>) {
 }
 
 
-@Component
+//@Component
 class Dummy(val sp: SerialCommunicationService) : CommandLineRunner {
     override fun run(vararg args: String?) {
         println("ok...")
