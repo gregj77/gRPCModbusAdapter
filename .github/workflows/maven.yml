@@ -27,8 +27,10 @@ jobs:
       with:
         username: ${{ secrets.DOCKER_USER }}
         password: ${{ secrets.DOCKER_PASSWORD }}
+    - name: Update Version
+      run: mvn -B versions:set -DnewVersion=1.0.$GITHUB_RUN_NUMBER
     - name: Build with Maven
-      run: mvn -B versions:set package verify sonar:sonar docker:build docker:push --file pom.xml -Dsonar.projectKey=gregj77_gRPCModbusAdapter -Dsonar.organization=gregj77 -Dsonar.host.url=https://sonarcloud.io -Dsonar.login=$SONAR_TOKEN -Dsonar.coverage.jacoco.xmlReportPaths=./target/site/jacoco/jacoco.xml -DnewVersion=1.0.$GITHUB_RUN_NUMBER
+      run: mvn -B package verify sonar:sonar docker:build docker:push --file pom.xml -Dsonar.projectKey=gregj77_gRPCModbusAdapter -Dsonar.organization=gregj77 -Dsonar.host.url=https://sonarcloud.io -Dsonar.login=$SONAR_TOKEN -Dsonar.coverage.jacoco.xmlReportPaths=./target/site/jacoco/jacoco.xml
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}    
