@@ -1,11 +1,10 @@
-package com.gcs.gRPCModbusAdapter
+package com.gcs.gRPCModbusAdapter.functions
 
 import org.springframework.stereotype.Service
-import javax.annotation.PostConstruct
 
 
 @Service
-class MessageTranscoderService() {
+class MessageCRCService() {
     companion object CRC {
         val initial: UInt = 0xffffL.toUInt()
 
@@ -46,7 +45,11 @@ class MessageTranscoderService() {
 
     }
 
-    fun calculateCRC(msg: ByteArray): ByteArray = calculateInternal(msg, msg.size)
+    fun calculateCRC(msg: ByteArray) {
+        val crc = calculateInternal(msg, msg.size - 2)
+        msg[msg.size - 2] = crc[0]
+        msg[msg.size - 1] = crc[1]
+    }
 
     fun checkCrc(msg: ByteArray): Boolean {
         var crc = calculateInternal(msg, msg.size - 2)
@@ -69,33 +72,5 @@ class MessageTranscoderService() {
                 else -> throw IndexOutOfBoundsException(it)
             }
         }
-    }
-
-
-    @PostConstruct
-    fun test() {
-        val test = ByteArray(9)
-        test[0] = 0
-        test[1] = 0x10
-        test[2] = 0
-        test[3] = 0x1a
-        test[4] = 0
-        test[5] = 0x1
-        test[6] = 0x2
-        test[7] = 0
-        test[8] = 0
-        val crc = calculateCRC(test)
-        println(crc)
-
-        var generated = ByteArray(11) {
-            when (it) {
-                9 -> 0xA9.toByte()
-                10 -> 0xfa.toByte()
-                else -> test[it]
-            }
-        }
-
-        println(checkCrc(generated))
-
     }
 }
