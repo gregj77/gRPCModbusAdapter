@@ -1,11 +1,16 @@
 package com.gcs.gRPCModbusAdapter
 
 import com.gcs.gRPCModbusAdapter.functions.*
+import com.gcs.gRPCModbusAdapter.functions.args.FunctionArgs
+import com.gcs.gRPCModbusAdapter.functions.args.ReadCurrentPowerFunctionArgs
+import com.gcs.gRPCModbusAdapter.functions.args.ReadTotalPowerFunctionArgs
+import com.gcs.gRPCModbusAdapter.functions.args.RegisterId
 import com.gcs.gRPCModbusAdapter.serialPort.SerialCommunicationService
 import org.springframework.boot.CommandLineRunner
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.context.properties.ConfigurationPropertiesScan
 import org.springframework.boot.runApplication
+import org.springframework.context.annotation.Profile
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.stereotype.Component
 
@@ -20,7 +25,8 @@ fun main(args: Array<String>) {
 
 
 @Component
-class Dummy(val sp: SerialCommunicationService, val powerFunction: ReadTotalPowerFunction, val readInstantPower: ReadInstantPowerFunction) : CommandLineRunner {
+@Profile("debug")
+class Dummy(val sp: SerialCommunicationService, val powerFunction: ReadTotalPowerFunction, val readInstantPower: ReadCurrentPowerFunction) : CommandLineRunner {
     override fun run(vararg args: String?) {
         println("ok...")
 
@@ -29,14 +35,14 @@ class Dummy(val sp: SerialCommunicationService, val powerFunction: ReadTotalPowe
         var i = 20
         val sleep = 1000L
         while (i-- > 0) {
-            println(powerFunction.execute(ReadPowerFunctionArgs(port!!, 1, RegisterId.TOTAL)).get())
+            println(powerFunction.execute(ReadTotalPowerFunctionArgs(port!!, 1, RegisterId.TOTAL_POWER)).get())
             Thread.sleep(sleep)
-            println(powerFunction.execute(ReadPowerFunctionArgs(port!!, 1, RegisterId.IMPORT)).get())
+            println(powerFunction.execute(ReadTotalPowerFunctionArgs(port!!, 1, RegisterId.IMPORT_POWER)).get())
             Thread.sleep(sleep)
-            println(powerFunction.execute(ReadPowerFunctionArgs(port!!, 1, RegisterId.EXPORT)).get())
+            println(powerFunction.execute(ReadTotalPowerFunctionArgs(port!!, 1, RegisterId.EXPORT_POWER)).get())
             Thread.sleep(sleep)
             println("next call!")
-            println(readInstantPower.execute(FunctionArgs(port!!, 1)).get())
+            println(readInstantPower.execute(ReadCurrentPowerFunctionArgs(port!!, 1)).get())
         }
     }
 

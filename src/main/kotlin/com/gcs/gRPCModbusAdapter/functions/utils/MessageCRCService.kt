@@ -1,13 +1,14 @@
-package com.gcs.gRPCModbusAdapter.functions
+package com.gcs.gRPCModbusAdapter.functions.utils
 
 import org.springframework.stereotype.Service
 
 
 @Service
-class MessageCRCService() {
+class MessageCRCService {
     companion object CRC {
         val initial: UInt = 0xffffL.toUInt()
 
+        @ExperimentalUnsignedTypes
         private val TABLE = uintArrayOf(
             0x0000u, 0xc0c1u, 0xc181u, 0x0140u, 0xc301u, 0x03c0u, 0x0280u, 0xc241u,
             0xc601u, 0x06c0u, 0x0780u, 0xc741u, 0x0500u, 0xc5c1u, 0xc481u, 0x0440u,
@@ -45,19 +46,22 @@ class MessageCRCService() {
 
     }
 
+    @ExperimentalUnsignedTypes
     fun calculateCRC(msg: ByteArray) {
         val crc = calculateInternal(msg, msg.size - 2)
         msg[msg.size - 2] = crc[0]
         msg[msg.size - 1] = crc[1]
     }
 
+    @ExperimentalUnsignedTypes
     fun checkCrc(msg: ByteArray): Boolean {
-        var crc = calculateInternal(msg, msg.size - 2)
+        val crc = calculateInternal(msg, msg.size - 2)
         val incomingCrc = msg.takeLast(2)
 
         return crc[0] == incomingCrc[0] && crc[1] == incomingCrc[1]
     }
 
+    @ExperimentalUnsignedTypes
     private fun calculateInternal(msg: ByteArray, count: Int): ByteArray {
         var crc = initial
 
