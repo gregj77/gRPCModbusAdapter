@@ -29,4 +29,11 @@ internal class MessageCRCServiceTest {
         val victim = MessageCRCService()
         assertThat(victim.checkCrc(bytes)).isFalse
     }
+
+    @Test
+    fun `check partially valid CRC returns false`() {
+        val bytes = byteArrayOf( 0x00, 0x10, 0x00, 0x1A, 0x00, 0x01, 0x02, 0x00, 0x00, 0xa9.toByte(), 0xff.toByte() )
+        val victim = MessageCRCService()
+        assertThat(victim.checkCrc(bytes)).isFalse
+    }
 }

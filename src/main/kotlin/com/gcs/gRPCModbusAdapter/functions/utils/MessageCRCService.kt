@@ -70,11 +70,11 @@ class MessageCRCService {
         }
 
         return ByteArray(2) {
-            when (it) {
-                0 -> (crc and 0xffu).toByte()
-                1 -> (crc shr 8 and 0xffu).toByte()
-                else -> throw IndexOutOfBoundsException(it)
-            }
+            if (it == 0)
+                (crc and 0xffu).toByte()
+            else
+                (crc shr 8 and 0xffu).toByte()
+
         }
     }
 }

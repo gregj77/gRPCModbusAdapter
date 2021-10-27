@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service
 class ReadCurrentPowerFunction(crcService: MessageCRCService) : ModbusFunction<ReadCurrentPowerFunctionArgs, Float>(crcService, 9) {
 
     override val functionName: String
-        get() = "ReadTotalPower"
+        get() = "ReadCurrentPower"
 
     override fun extractValue(response: ByteArray): Float = response.toInt(3).toFloat() / 1000.0f
 }
