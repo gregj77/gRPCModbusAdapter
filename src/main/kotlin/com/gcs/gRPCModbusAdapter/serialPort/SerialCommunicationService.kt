@@ -13,7 +13,7 @@ import javax.annotation.PreDestroy
 @Service
 class SerialCommunicationService(configuration: Ports, serialPortFactory: (String) -> RXTXPort) {
 
-    private val ports: Map<String, SerialPortDriver>
+    public val ports: Map<String, SerialPortDriver>
 
     init {
         val scheduler = Schedulers.io()

@@ -1,14 +1,14 @@
-package com.gcs.gRPCModbusAdapter
+package com.gcs.gRPCModbusAdapter.functions.utils
 
 import org.springframework.stereotype.Service
-import javax.annotation.PostConstruct
 
 
 @Service
-class MessageTranscoderService() {
+class MessageCRCService {
     companion object CRC {
         val initial: UInt = 0xffffL.toUInt()
 
+        @ExperimentalUnsignedTypes
         private val TABLE = uintArrayOf(
             0x0000u, 0xc0c1u, 0xc181u, 0x0140u, 0xc301u, 0x03c0u, 0x0280u, 0xc241u,
             0xc601u, 0x06c0u, 0x0780u, 0xc741u, 0x0500u, 0xc5c1u, 0xc481u, 0x0440u,
@@ -46,15 +46,22 @@ class MessageTranscoderService() {
 
     }
 
-    fun calculateCRC(msg: ByteArray): ByteArray = calculateInternal(msg, msg.size)
+    @ExperimentalUnsignedTypes
+    fun calculateCRC(msg: ByteArray) {
+        val crc = calculateInternal(msg, msg.size - 2)
+        msg[msg.size - 2] = crc[0]
+        msg[msg.size - 1] = crc[1]
+    }
 
+    @ExperimentalUnsignedTypes
     fun checkCrc(msg: ByteArray): Boolean {
-        var crc = calculateInternal(msg, msg.size - 2)
+        val crc = calculateInternal(msg, msg.size - 2)
         val incomingCrc = msg.takeLast(2)
 
         return crc[0] == incomingCrc[0] && crc[1] == incomingCrc[1]
     }
 
+    @ExperimentalUnsignedTypes
     private fun calculateInternal(msg: ByteArray, count: Int): ByteArray {
         var crc = initial
 
@@ -63,39 +70,11 @@ class MessageTranscoderService() {
         }
 
         return ByteArray(2) {
-            when (it) {
-                0 -> (crc and 0xffu).toByte()
-                1 -> (crc shr 8 and 0xffu).toByte()
-                else -> throw IndexOutOfBoundsException(it)
-            }
+            if (it == 0)
+                (crc and 0xffu).toByte()
+            else
+                (crc shr 8 and 0xffu).toByte()
+
         }
-    }
-
-
-    @PostConstruct
-    fun test() {
-        val test = ByteArray(9)
-        test[0] = 0
-        test[1] = 0x10
-        test[2] = 0
-        test[3] = 0x1a
-        test[4] = 0
-        test[5] = 0x1
-        test[6] = 0x2
-        test[7] = 0
-        test[8] = 0
-        val crc = calculateCRC(test)
-        println(crc)
-
-        var generated = ByteArray(11) {
-            when (it) {
-                9 -> 0xA9.toByte()
-                10 -> 0xfa.toByte()
-                else -> test[it]
-            }
-        }
-
-        println(checkCrc(generated))
-
     }
 }
