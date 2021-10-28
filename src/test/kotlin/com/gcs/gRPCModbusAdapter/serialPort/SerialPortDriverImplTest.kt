@@ -7,6 +7,9 @@ import gnu.io.PortInUseException
 import gnu.io.RXTXPort
 import gnu.io.SerialPortEvent
 import gnu.io.SerialPortEventListener
+import io.micrometer.core.instrument.Counter
+import io.micrometer.core.instrument.MeterRegistry
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.mockk.confirmVerified
 import io.mockk.every
 import io.mockk.mockk
@@ -28,11 +31,16 @@ internal class SerialPortDriverImplTest {
     var serialPortFactory: ((String) -> RXTXPort)? = null
     var serialPortMock: RXTXPort? = null
     var scheduler: TestScheduler? = null
+    var writeCounter: Counter? = null
+    var readCounter: Counter? = null
 
     @BeforeEach
     fun setUp() {
         scheduler = TestScheduler()
         serialPortFactory = { serialPortMock!! }
+        val registry = SimpleMeterRegistry()
+        writeCounter = registry.counter("bytesWritten")
+        readCounter = registry.counter("bytesRead")
     }
 
     @AfterEach
@@ -46,7 +54,7 @@ internal class SerialPortDriverImplTest {
 
         serialPortFactory = { throw IllegalArgumentException("no such port $it")}
 
-        val victim = SerialPortDriverImpl(cfg, Schedulers.io(), serialPortFactory!!)
+        val victim = SerialPortDriverImpl(cfg, Schedulers.io(), serialPortFactory!!, writeCounter!!, readCounter!!)
 
         assertThat(victim.isRunning).isFalse
 
@@ -65,7 +73,7 @@ internal class SerialPortDriverImplTest {
             throw PortInUseException()
         }
 
-        val victim = SerialPortDriverImpl(cfg, scheduler!!, serialPortFactory!!)
+        val victim = SerialPortDriverImpl(cfg, scheduler!!, serialPortFactory!!, writeCounter!!, readCounter!!)
 
         scheduler!!.advanceTimeBy(59L, TimeUnit.SECONDS)
 
@@ -85,7 +93,7 @@ internal class SerialPortDriverImplTest {
             commPort
         }
 
-        val victim = SerialPortDriverImpl(cfg, scheduler!!, serialPortFactory!!)
+        val victim = SerialPortDriverImpl(cfg, scheduler!!, serialPortFactory!!, writeCounter!!, readCounter!!)
 
         verify { commPort.setSerialPortParams(9600, 8, StopBits.STOPBITS_1.value, Parity.NONE.value) }
         verify { commPort.inputStream }
@@ -123,7 +131,7 @@ internal class SerialPortDriverImplTest {
             dataReadyCallback = it.invocation.args[0] as SerialPortEventListener
         }
 
-        val victim = SerialPortDriverImpl(cfg, scheduler!!, serialPortFactory!!)
+        val victim = SerialPortDriverImpl(cfg, scheduler!!, serialPortFactory!!, writeCounter!!, readCounter!!)
 
         assertThat(victim.isRunning).isTrue
 

@@ -10,14 +10,12 @@
     </parent>
     <groupId>com.gcs</groupId>
     <artifactId>grpc-modbus-adapter</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>LOCAL-SNAPSHOT</version>
     <name>grpc-modbus-adapter</name>
     <description>RS485 Modbus to gRPC adapter</description>
     <properties>
         <java.version>11</java.version>
         <kotlin.version>1.5.21</kotlin.version>
-        <maven.compiler.source>9</maven.compiler.source>
-        <maven.compiler.target>9</maven.compiler.target>
     </properties>
 
     <dependencies>
@@ -45,6 +43,11 @@
             <groupId>org.jetbrains.kotlin</groupId>
             <artifactId>kotlin-stdlib-jdk8</artifactId>
         </dependency>
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-core</artifactId>
+        </dependency>
+
 
         <dependency>
             <groupId>io.github.microutils</groupId>

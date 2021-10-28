@@ -5,11 +5,15 @@ import gnu.io.PortInUseException
 import gnu.io.RXTXPort
 import gnu.io.SerialPortEvent
 import gnu.io.SerialPortEventListener
+import io.micrometer.core.instrument.Counter
 import io.reactivex.rxjava3.core.*
 import io.reactivex.rxjava3.disposables.CompositeDisposable
 import io.reactivex.rxjava3.disposables.Disposable
 import io.reactivex.rxjava3.subjects.PublishSubject
 import mu.KotlinLogging
+import org.springframework.boot.actuate.health.Health
+import org.springframework.boot.actuate.health.HealthContributor
+import org.springframework.boot.actuate.health.HealthIndicator
 import java.io.InputStream
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -25,26 +29,31 @@ interface SerialPortDriver : Disposable {
 }
 
 
-class SerialPortDriverImpl(val cfg: SerialPortConfig, val scheduler: Scheduler, serialPortFactory: (String) -> RXTXPort) : SerialPortDriver {
+class SerialPortDriverImpl(
+    private val cfg: SerialPortConfig,
+    private val scheduler: Scheduler,
+    serialPortFactory: (String) -> RXTXPort,
+    private val writeCounter: Counter,
+    private val readCounter: Counter
+) : SerialPortDriver, HealthIndicator, HealthContributor {
     private val logger = KotlinLogging.logger {}
 
     override val name: String
         get() = cfg.name
     override val totalBytesRead: ULong
-        get() = totalRead
+        get() = readCounter.count().toULong()
     override val totalBytesWritten: ULong
-        get() = totalWrite
+        get() = writeCounter.count().toULong()
     override val isRunning: Boolean
         get() = running.get()
 
     private val id = AtomicInteger(0)
     private val running = AtomicBoolean(false)
 
-    private var totalRead: ULong = 0u
-    private var totalWrite: ULong = 0u
 
     private val requestStream = PublishSubject.create<Observable<CommunicationRequest>>()
     private val subscription: Disposable
+    private var lastError: String? = null
 
     init {
         logger.info { "Initializing serial port driver with settings $cfg" }
@@ -69,7 +78,10 @@ class SerialPortDriverImpl(val cfg: SerialPortConfig, val scheduler: Scheduler, 
                 val commandProcessingToken = requestStream
                     .flatMap { it }
                     .concatMap {
-                        it.processCommunicationStream(activeDataEmitterRef, outputByteStream::write)
+                        it.processCommunicationStream(activeDataEmitterRef) { bytes ->
+                            writeCounter.increment(bytes.size.toDouble())
+                            outputByteStream.write(bytes)
+                        }
                     }
                     .observeOn(scheduler)
                     .subscribe()
@@ -83,9 +95,6 @@ class SerialPortDriverImpl(val cfg: SerialPortConfig, val scheduler: Scheduler, 
                 with (serialPort) {
                     addEventListener(onDataReceivedCallbackHandler)
                     notifyOnDataAvailable(true)
-//                    notifyOnCTS(true)
-//                    notifyOnDSR(true)
-//                    notifyOnRingIndicator(true)
                 }
 
                 running.set(true)
@@ -117,7 +126,10 @@ class SerialPortDriverImpl(val cfg: SerialPortConfig, val scheduler: Scheduler, 
             }
             .subscribe(
                 {},
-                { err -> logger.error { "cannot initialize serial port ${cfg.name} - ${err.message} <${err.javaClass.name}>" } })
+                { err ->
+                    lastError = "cannot initialize serial port ${cfg.name} - ${err.message} <${err.javaClass.name}>"
+                    logger.error { lastError }
+                })
     }
 
 
@@ -140,6 +152,20 @@ class SerialPortDriverImpl(val cfg: SerialPortConfig, val scheduler: Scheduler, 
 
     override fun isDisposed(): Boolean = subscription.isDisposed
 
+    override fun health(): Health {
+        return if (isRunning) {
+            Health.up().build()
+        } else if (lastError != null) {
+            if (subscription.isDisposed) {
+                Health.down().withDetail("lastError", lastError).build()
+            } else {
+                Health.outOfService().withDetail("lastError", lastError).build()
+            }
+        } else {
+            Health.down().withDetail("status", "already disposed").build()
+        }
+    }
+
     private fun onDataReceived(
         args: SerialPortEvent,
         inputByteStream: InputStream,
@@ -151,7 +177,7 @@ class SerialPortDriverImpl(val cfg: SerialPortConfig, val scheduler: Scheduler, 
             val dataReadyCallback = dataReadyCallbackReference.get()
             while (inputByteStream.available() > 0) {
                 val read = inputByteStream.read(byteArray)
-                totalRead += read.toULong()
+                readCounter.increment(read.toDouble())
                 for (i in 0 until read) dataReadyCallback?.onNext(byteArray[i])
             }
         } else {
