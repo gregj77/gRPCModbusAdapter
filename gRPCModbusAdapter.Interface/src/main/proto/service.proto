@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package com.gcs.gRPCModbusAdapter.service;
+
+option java_multiple_files = true;
+option java_package = "com.gcs.gRPCModbusAdapter.service";
+option java_outer_classname = "MeterManagementService";
+
+import "google/protobuf/timestamp.proto";
+
+service ModbusDeviceService {
+  rpc subscribeForDeviceData (DeviceReadRequest) returns (stream DeviceReadResponse) {
+  }
+}
+
+enum DeviceFunction {
+  UNKNOWN = 0;
+  TOTAL_POWER = 1;
+  EXPORT_POWER = 2;
+  IMPORT_POWER = 3;
+  CURRENT_POWER = 4;
+};
+
+message ReadRequest {
+  DeviceFunction functionName = 1;
+  uint32 readIntervalInSeconds = 2;
+}
+
+message DeviceReadRequest {
+  string deviceName = 1;
+  repeated ReadRequest readRequests = 2;
+}
+
+message ReadResponse {
+  DeviceFunction functionName = 1;
+  float value = 2;
+};
+
+message DeviceReadResponse {
+  google.protobuf.Timestamp time = 1;
+  repeated ReadResponse readResponses = 2;
+}
