@@ -3,17 +3,11 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <!--parent>
-        <groupId>com.gcs</groupId>
-        <artifactId>grpc-modbus-adapter-parent</artifactId>
-        <version>LOCAL-SNAPSHOT</version>
-    </parent-->
-
     <parent>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-starter-parent</artifactId>
-        <version>2.5.4</version>
-        <relativePath/>
+        <groupId>com.gcs</groupId>
+        <artifactId>adapter-parent</artifactId>
+        <version>LOCAL-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>grpc-modbus-adapter</artifactId>
@@ -45,10 +39,12 @@
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
             <artifactId>kotlin-reflect</artifactId>
+            <version>${kotlin.version}</version>
         </dependency>
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
             <artifactId>kotlin-stdlib-jdk8</artifactId>
+            <version>${kotlin.version}</version>
         </dependency>
         <dependency>
             <groupId>io.projectreactor</groupId>
@@ -87,7 +83,7 @@
     </dependencies>
 
     <build>
-        <sourceDirectory>${project.basedir}/src/main/kotlin</sourceDirectory>
+        <sourceDirectory>src/main/kotlin</sourceDirectory>
         <testSourceDirectory>${project.basedir}/src/test/kotlin</testSourceDirectory>
         <plugins>
             <plugin>
@@ -98,21 +94,50 @@
                         <enabled>true</enabled>
                     </layers>
                 </configuration>
+                <executions>
+                    <execution>
+                        <id>repackage</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-jar-plugin</artifactId>
-                <configuration>
-                    <archive>
-                        <manifest>
-                            <mainClass>com.gcs.gRPCModbusAdapter.ModbusAdapterKt</mainClass>
-                        </manifest>
-                    </archive>
-                </configuration>
+                <artifactId>maven-resources-plugin</artifactId>
             </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+
             <plugin>
                 <groupId>org.jetbrains.kotlin</groupId>
                 <artifactId>kotlin-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>compile</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>compile</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>test-compile</id>
+                        <phase>test-compile</phase>
+                        <goals>
+                            <goal>test-compile</goal>
+                        </goals>
+                    </execution>
+                </executions>
                 <configuration>
                     <args>
                         <arg>-Xjsr305=strict</arg>
@@ -121,18 +146,11 @@
                         <plugin>spring</plugin>
                     </compilerPlugins>
                 </configuration>
-                <dependencies>
-                    <dependency>
-                        <groupId>org.jetbrains.kotlin</groupId>
-                        <artifactId>kotlin-maven-allopen</artifactId>
-                        <version>${kotlin.version}</version>
-                    </dependency>
-                </dependencies>
             </plugin>
+
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
-                <version>0.8.7</version>
                 <executions>
                     <execution>
                         <id>prepare-agent</id>
@@ -153,19 +171,7 @@
             <plugin>
                 <artifactId>exec-maven-plugin</artifactId>
                 <groupId>org.codehaus.mojo</groupId>
-                <version>3.0.0</version>
                 <executions>
-                    <execution>
-                        <id>test!!!!</id>
-                        <phase>compile</phase>
-                        <goals>
-                            <goal>exec</goal>
-                        </goals>
-                        <configuration>
-                            <executable>pwd</executable>
-                            <workingDirectory>${project.basedir}</workingDirectory>
-                        </configuration>
-                    </execution>
                     <execution>
                         <id>Generate layer directories</id>
                         <phase>package</phase>
@@ -183,27 +189,12 @@
                             </arguments>
                         </configuration>
                     </execution>
-                    <execution>
-                        <id>List target content</id>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>exec</goal>
-                        </goals>
-                        <configuration>
-                            <executable>ls</executable>
-                            <workingDirectory>${project.build.directory}</workingDirectory>
-                            <arguments>
-                                <argument>-al</argument>
-                            </arguments>
-                        </configuration>
-                    </execution>
                 </executions>
             </plugin>
 
             <plugin>
                 <groupId>io.fabric8</groupId>
                 <artifactId>docker-maven-plugin</artifactId>
-                <version>0.37.0</version>
                 <configuration>
                     <images>
                         <image>
