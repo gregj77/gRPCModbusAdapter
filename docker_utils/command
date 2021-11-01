@@ -1,0 +1,1 @@
+grpcurl --plaintext -d "{\"deviceName\": \"ProductionMeter\", \"readRequests\": [{\"functionName\": \"TOTAL_POWER\", \"readIntervalInSeconds\": 3}, {\"functionName\": \"IMPORT_POWER\", \"readIntervalInSeconds\": 5}]}" localhost:9090  com.gcs.gRPCModbusAdapter.service.ModbusDeviceService.subscribeForDeviceData

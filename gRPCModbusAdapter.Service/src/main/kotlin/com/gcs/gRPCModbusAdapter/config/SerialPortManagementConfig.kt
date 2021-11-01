@@ -5,19 +5,24 @@ import com.gcs.gRPCModbusAdapter.serialPort.SerialPortDriverImpl
 import gnu.io.RXTXPort
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Tags
-import io.reactivex.rxjava3.disposables.Disposable
-import io.reactivex.rxjava3.schedulers.Schedulers
 import org.springframework.boot.actuate.health.HealthContributor
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.context.support.GenericWebApplicationContext
+import reactor.core.Disposable
+import reactor.core.scheduler.Schedulers
 import java.util.function.Function
 import java.util.function.Supplier
 import java.util.stream.Collectors
 import javax.annotation.PreDestroy
 
 @Configuration
-class SerialPortManagementConfig(configuration: Ports, serialPortFactory: (String) -> RXTXPort, hardwareErrorPortCleaner: (String) -> Unit, appCtx: GenericWebApplicationContext, private val registry: MeterRegistry) {
+class SerialPortManagementConfig(
+    appCtx: GenericWebApplicationContext,
+    configuration: Ports,
+    serialPortFactory: (String) -> RXTXPort,
+    hardwareErrorPortCleaner: (String) -> Unit,
+    registry: MeterRegistry) {
 
     private val ports: Map<String, SerialPortDriverImpl>
 

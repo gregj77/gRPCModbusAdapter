@@ -8,35 +8,34 @@ import gnu.io.RXTXPort
 import gnu.io.SerialPortEvent
 import gnu.io.SerialPortEventListener
 import io.micrometer.core.instrument.Counter
-import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.mockk.confirmVerified
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import io.reactivex.rxjava3.core.Observable
-import io.reactivex.rxjava3.schedulers.Schedulers
-import io.reactivex.rxjava3.schedulers.TestScheduler
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reactor.core.scheduler.Schedulers
+import reactor.test.scheduler.VirtualTimeScheduler
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 internal class SerialPortDriverImplTest {
 
     var serialPortFactory: ((String) -> RXTXPort)? = null
     var serialPortMock: RXTXPort? = null
-    var scheduler: TestScheduler? = null
+    var scheduler: VirtualTimeScheduler? = null
     var writeCounter: Counter? = null
     var readCounter: Counter? = null
 
     @BeforeEach
     fun setUp() {
-        scheduler = TestScheduler()
+        scheduler = VirtualTimeScheduler.create()
         serialPortFactory = { serialPortMock!! }
         val registry = SimpleMeterRegistry()
         writeCounter = registry.counter("bytesWritten")
@@ -54,12 +53,12 @@ internal class SerialPortDriverImplTest {
 
         serialPortFactory = { throw IllegalArgumentException("no such port $it")}
 
-        val victim = SerialPortDriverImpl(cfg, Schedulers.io(), serialPortFactory!!, {}, writeCounter!!, readCounter!!)
+        val victim = SerialPortDriverImpl(cfg, Schedulers.single(), serialPortFactory!!, {}, writeCounter!!, readCounter!!)
 
         assertThat(victim.isRunning).isFalse
 
         assertThrows(IllegalStateException::class.java) {
-            victim.establishStream(Observable.empty()).blockingFirst()
+            victim.communicateAsync(ByteArray(0)).blockFirst()
         }
     }
 
@@ -75,7 +74,7 @@ internal class SerialPortDriverImplTest {
 
         val victim = SerialPortDriverImpl(cfg, scheduler!!, serialPortFactory!!, {}, writeCounter!!, readCounter!!)
 
-        scheduler!!.advanceTimeBy(59L, TimeUnit.SECONDS)
+        scheduler!!.advanceTimeBy(Duration.ofSeconds(59L))
 
         assertThat(victim.isRunning).isFalse
         assertThat(count).isEqualTo( 60 / 5)
@@ -137,17 +136,17 @@ internal class SerialPortDriverImplTest {
 
         val result = mutableListOf<Byte>()
         for (i in 0..2) buffer[i] = i.toByte()
-        victim.establishStream(Observable.just(buffer)).take(3).subscribe(result::add)
-        scheduler!!.advanceTimeBy(1L, TimeUnit.MINUTES)
+        victim.communicateAsync(buffer).take(3).subscribe(result::add)
+        scheduler!!.advanceTimeBy(Duration.ofMinutes(1L))
         dataReadyCallback!!.serialEvent(SerialPortEvent(commPort, SerialPortEvent.DATA_AVAILABLE, false, false))
-        scheduler!!.advanceTimeBy(1L, TimeUnit.MINUTES)
+        scheduler!!.advanceTimeBy(Duration.ofMinutes(1L))
 
         inStream.reset()
         for (i in 0..2) buffer[i] = i.plus(10).toByte()
-        victim.establishStream(Observable.just(buffer)).take(3).subscribe(result::add)
-        scheduler!!.advanceTimeBy(1L, TimeUnit.MINUTES)
+        victim.communicateAsync(buffer).take(3).subscribe(result::add)
+        scheduler!!.advanceTimeBy(Duration.ofMinutes(1L))
         dataReadyCallback!!.serialEvent(SerialPortEvent(commPort, SerialPortEvent.DATA_AVAILABLE, false, false))
-        scheduler!!.advanceTimeBy(1L, TimeUnit.MINUTES)
+        scheduler!!.advanceTimeBy(Duration.ofMinutes(1L))
 
         assertThat(result.size).isEqualTo(6)
         assertThat(result).containsExactly(0, 1, 2, 10, 11, 12)

@@ -4,6 +4,8 @@ import com.gcs.gRPCModbusAdapter.devices.ModbusDevice
 import com.gcs.gRPCModbusAdapter.devices.ModbusDeviceImpl
 import com.gcs.gRPCModbusAdapter.functions.ModbusFunction
 import com.gcs.gRPCModbusAdapter.serialPort.SerialPortDriver
+import io.micrometer.core.instrument.MeterRegistry
+import io.micrometer.core.instrument.Tags
 import org.springframework.boot.actuate.health.ReactiveHealthContributor
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -12,7 +14,12 @@ import java.util.function.Supplier
 import javax.validation.ValidationException
 
 @Configuration
-class DeviceManagementConfig(appCtx: GenericWebApplicationContext, devices: Devices, serialPorts: Array<SerialPortDriver>, serviceFunctions: Array<ModbusFunction>) {
+class DeviceManagementConfig(
+    appCtx: GenericWebApplicationContext,
+    devices: Devices,
+    serialPorts: Array<SerialPortDriver>,
+    serviceFunctions: Array<ModbusFunction>,
+    registry: MeterRegistry) {
 
     private val configuredDevices: Map<String, ModbusDeviceImpl>
 
@@ -32,7 +39,12 @@ class DeviceManagementConfig(appCtx: GenericWebApplicationContext, devices: Devi
                 .map { dc ->
                     currentEntry = "device: ${dc.name} -> port: ${dc.serialPort}"
                     val port = serialPorts.first { sp -> sp.name == dc.serialPort }
-                    ModbusDeviceImpl(dc.id, port, dc.name, dc.deviceFunctions, serviceFunctionsByName)
+                    val tags = Tags.of(
+                        "name", dc.name,
+                        "port", dc.serialPort
+                    )
+                    val callCounter = registry.counter("modbus_device_function_calls", tags)
+                    ModbusDeviceImpl(dc.id, port, dc.name, dc.deviceFunctions, serviceFunctionsByName, callCounter)
                 }
                 .toList()
         } catch (err: NoSuchElementException) {
@@ -58,7 +70,12 @@ class DeviceManagementConfig(appCtx: GenericWebApplicationContext, devices: Devi
     @Bean(DeviceHealthContributor)
     fun healthContributors(): Map<String, ReactiveHealthContributor> = configuredDevices
 
+    @Bean(Devices)
+    fun devices(): Map<String, ModbusDevice> = configuredDevices
+
     companion object {
         const val DeviceHealthContributor = "ModbusDeviceHealth"
+        const val Devices = "devices"
+
     }
 }

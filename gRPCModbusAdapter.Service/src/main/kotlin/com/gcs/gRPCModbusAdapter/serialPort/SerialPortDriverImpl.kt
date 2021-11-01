@@ -6,17 +6,17 @@ import gnu.io.RXTXPort
 import gnu.io.SerialPortEvent
 import gnu.io.SerialPortEventListener
 import io.micrometer.core.instrument.Counter
-import io.reactivex.rxjava3.core.*
-import io.reactivex.rxjava3.disposables.CompositeDisposable
-import io.reactivex.rxjava3.disposables.Disposable
-import io.reactivex.rxjava3.disposables.SerialDisposable
-import io.reactivex.rxjava3.subjects.PublishSubject
 import mu.KotlinLogging
 import org.springframework.boot.actuate.health.Health
-import org.springframework.boot.actuate.health.HealthContributor
 import org.springframework.boot.actuate.health.HealthIndicator
+import reactor.core.Disposable
+import reactor.core.publisher.Flux
+import reactor.core.publisher.FluxSink
+import reactor.core.scheduler.Scheduler
+import reactor.util.retry.Retry
 import java.io.InputStream
-import java.util.concurrent.TimeUnit
+import java.time.Duration
+import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
@@ -26,7 +26,7 @@ interface SerialPortDriver : Disposable {
     val totalBytesRead: ULong
     val totalBytesWritten: ULong
     val isRunning: Boolean
-    fun establishStream(dataStream: Observable<ByteArray>) : Observable<Byte>
+    fun communicateAsync(data: ByteArray) : Flux<Byte>
 }
 
 class SerialPortDriverImpl(
@@ -50,109 +50,139 @@ class SerialPortDriverImpl(
 
     private val id = AtomicInteger(0)
     private val running = AtomicBoolean(false)
+    private val commandsInProgress = AtomicInteger(0)
+    private val commands = ConcurrentLinkedQueue<CommandRequest>()
 
-
-    private val requestStream = PublishSubject.create<Observable<CommunicationRequest>>()
-    private val subscription: SerialDisposable = SerialDisposable()
+    private val subscription: Disposable
     private var lastError: String? = null
+    private var commandHandler: ((ByteArray, FluxSink<Byte>) -> Disposable)? = null
 
     init {
-        internalInitialize(false)
-    }
 
-    private fun internalInitialize(canRetryInitialization: Boolean) {
-        logger.info { "Initializing serial port driver with settings $cfg" }
-        val initialSubscription = requestStream
-            .flatMap { it }
-            .subscribeOn(scheduler)
-            .observeOn(scheduler)
-            .subscribe {
-                it.outDataStream.onError(IllegalStateException("port ${cfg.name} is not yet initialized!"))
-            }
-        subscription.set(Observable.create<Observable<Byte>> { observer ->
+        subscription = Flux.create<Unit> { observer ->
             try {
                 val serialPort = serialPortFactory(cfg.name)
-                logger.info { "setting port parameters..." }
+                logger.debug { "setting port parameters..." }
                 serialPort.setSerialPortParams(cfg.baudRate, cfg.dataBits, cfg.stopBits.value, cfg.parity.value)
 
                 val inputByteStream = serialPort.inputStream
                 val outputByteStream = serialPort.outputStream
+                val activeDataEmitterRef: AtomicReference<FluxSink<Byte>?> = AtomicReference(null)
 
-                val activeDataEmitterRef: AtomicReference<Emitter<Byte>?> = AtomicReference(null)
+                logger.debug { "registering data listener..." }
 
-                val commandProcessingToken = requestStream
-                    .flatMap { it }
-                    .concatMap {
-                        it.processCommunicationStream(activeDataEmitterRef) { bytes ->
-                            outputByteStream.write(bytes)
-                            writeCounter.increment(bytes.size.toDouble())
-                        }
-                    }
-                    .observeOn(scheduler)
-                    .subscribe()
-
-                logger.info { "registering data listener..." }
-
+                val receiveBuffer = ByteArray(32)
                 val onDataReceivedCallbackHandler = SerialPortEventListener {
-                    onDataReceived(it, inputByteStream, activeDataEmitterRef, ByteArray(32))
+                    when (it.eventType) {
+                        SerialPortEvent.HARDWARE_ERROR -> { lastError = "hardware error"; observer.error(RetryableException("HardwareError")) }
+                        SerialPortEvent.DATA_AVAILABLE -> onDataReceived(inputByteStream, activeDataEmitterRef, receiveBuffer)
+                        else -> logger.info { "$name -> not supported event type ${it.eventType} received. ignoring..." }
+                    }
                 }
 
-                with (serialPort) {
+                commandHandler = { sendBuffer, responseHandler  ->
+                    activeDataEmitterRef.set(responseHandler)
+                    outputByteStream.write(sendBuffer)
+                    writeCounter.increment(sendBuffer.size.toDouble())
+                    Disposable { activeDataEmitterRef.set(null) }
+                }
+
+                with(serialPort) {
                     addEventListener(onDataReceivedCallbackHandler)
                     notifyOnDataAvailable(true)
                 }
 
-                running.set(true)
-
-                observer.setCancellable {
-                    commandProcessingToken.dispose()
-                    logger.info { "closing serial port due to unsubscribe event" }
-                    running.set(false)
-                    serialPort.removeEventListener()
-                    serialPort.close()
+                observer.onCancel {
+                    if (running.get()) {
+                        logger.debug { "closing serial port due to cancel event" }
+                        running.set(false)
+                        serialPort.removeEventListener()
+                        serialPort.close()
+                        hardwareErrorPortCleaner.invoke(name)
+                    }
                 }
 
-                logger.info { "all is initialized - disposing initial subscription" }
-                initialSubscription.dispose()
+                observer.onDispose {
+                    if (running.get()) {
+                        logger.debug { "closing serial port due to unsubscribe event" }
+                        running.set(false)
+                        serialPort.removeEventListener()
+                        serialPort.close()
+                    }
+                    commandHandler = null
+                }
 
+                logger.debug { "all is initialized" }
+                running.set(true)
+                lastError = ""
+                observer.next(Unit)
+
+            } catch (err: PortInUseException) {
+                lastError = "serial port is in use - ${err.message}"
+                observer.error(RetryableException("$name - PortInUse: ${err.message}"))
             } catch (err: Exception) {
-                observer.onError(err)
+                lastError = "unhandled error - ${err.message} <${err.javaClass.name}>"
+                observer.error(err)
             }
         }
-            .retryWhen { errorStream ->
-                return@retryWhen errorStream
-                    .flatMap {
-                        error ->
-                        val canRetry = canRetryInitialization or (error is PortInUseException)
-                        logger.warn { "$name: got error ${error.message} <${error.javaClass.name}> retry: $canRetry" }
-                        if (canRetry)  Observable.just(1).delay(5_000L, TimeUnit.MILLISECONDS, scheduler)
-                        else Observable.error(error)
-                    }
-            }
+            .retryWhen(
+                Retry.backoff(Long.MAX_VALUE, Duration.ofSeconds(5L)).filter { err -> err is RetryableException })
             .subscribe(
-                {},
+                { logger.info { "serial port $name is up and running with settings $cfg" } },
                 { err ->
                     lastError = "cannot initialize serial port ${cfg.name} - ${err.message} <${err.javaClass.name}>"
                     logger.error { lastError }
-                }))
+                })
     }
 
 
-    override fun establishStream(dataStream: Observable<ByteArray>): Observable<Byte> {
-        return Observable.create<Byte?> { observer ->
-            val cmdId = id.incrementAndGet()
-            logger.debug { "received new command $cmdId" }
-            val task = CommunicationRequest(cmdId, dataStream, observer)
-            requestStream.onNext(Observable.just(task))
-        }
+    override fun communicateAsync(data: ByteArray): Flux<Byte> {
+        return Flux
+            .create<Byte?> { consumer ->
+                val cmdId = id.incrementAndGet()
+                logger.debug { "received new command $cmdId" }
+                val cmd = CommandRequest(cmdId, data, consumer)
+                commands.offer(cmd)
+
+                consumer.onDispose {
+                    val leftCommands = commandsInProgress.decrementAndGet()
+                    logger.debug { "command $cmdId completed; commands left: $leftCommands" }
+                    cmd.dispose()
+                    scheduler.schedule(this::processCommandQueue)
+                }
+
+                if (commandsInProgress.incrementAndGet() == 1) {
+                    scheduler.schedule(this::processCommandQueue)
+                }
+            }
             .subscribeOn(scheduler)
-            .observeOn(scheduler)
+            .publishOn(scheduler)
+    }
+
+    private fun processCommandQueue() {
+        val command = commands.poll()
+        if (null != command) {
+            when (commandHandler) {
+                null -> {
+                    logger.warn { "$name - trying to execute command on not initialized port" }
+                    command.responseConsumer.error(IllegalStateException("$name port is not initialized"))
+                }
+                else -> {
+                    try {
+                        logger.debug { "$name - about to execute command ${command.id}" }
+                        command.cleanup = commandHandler!!.invoke(command.request, command.responseConsumer)
+                    } catch (err: Exception) {
+                        logger.warn { "$name - command ${command.id} failed to execute with ${err.message} <${err.javaClass.name}>" }
+                        command.responseConsumer.error(err)
+                    }
+                }
+            }
+        }
     }
 
     override fun dispose() {
         logger.info { "Shutting down serial port service" }
         subscription.dispose()
-        running.set(false)
     }
 
     override fun isDisposed(): Boolean = subscription.isDisposed
@@ -172,78 +202,24 @@ class SerialPortDriverImpl(
     }
 
     private fun onDataReceived(
-        args: SerialPortEvent,
         inputByteStream: InputStream,
-        dataReadyCallbackReference: AtomicReference<Emitter<Byte>?>,
+        dataReadyCallbackReference: AtomicReference<FluxSink<Byte>?>,
         byteArray: ByteArray
     ) {
-
-        when (args.eventType) {
-            SerialPortEvent.DATA_AVAILABLE -> {
-                val dataReadyCallback = dataReadyCallbackReference.get()
-                while (inputByteStream.available() > 0) {
-                    val read = inputByteStream.read(byteArray)
-                    readCounter.increment(read.toDouble())
-                    for (i in 0 until read) dataReadyCallback?.onNext(byteArray[i])
-                }
-            }
-            SerialPortEvent.HARDWARE_ERROR -> {
-                logger.warn { "$name - received hardware error event" }
-                subscription.set(Disposable.empty())
-                hardwareErrorPortCleaner(name)
-                internalInitialize(true)
-            }
-            else -> {
-                logger.info { "$name - got new event : ${args.eventType} - ${args.oldValue} -> ${args.newValue}" }
-            }
+        val dataReadyCallback = dataReadyCallbackReference.get()
+        while (inputByteStream.available() > 0) {
+            val read = inputByteStream.read(byteArray)
+            readCounter.increment(read.toDouble())
+            for (i in 0 until read) dataReadyCallback?.next(byteArray[i])
         }
     }
 }
 
-private data class CommunicationRequest(val id: Int, val inDataStream: Observable<ByteArray>, val outDataStream: ObservableEmitter<Byte>)  {
-
-    fun processCommunicationStream(activeDataEmitterRef: AtomicReference<Emitter<Byte>?>, onSendData: (ByteArray) -> Unit ): ObservableSource<Unit> {
-        logger.debug { "command $id - starting..." }
-        activeDataEmitterRef.set(outDataStream)
-
-        return ObservableSource { requestObserver ->
-
-            val activeStreams = AtomicInteger(2)
-            val cleanup = CompositeDisposable()
-
-            val tryCloseStream = {
-                if (activeStreams.decrementAndGet() == 0) {
-                    logger.debug { "command $id - both up&down streams closed, releasing all resources..." }
-                    requestObserver.onComplete()
-                    cleanup.dispose()
-                    activeDataEmitterRef.set(null)
-                }
-            }
-            outDataStream.setCancellable(tryCloseStream)
-
-            cleanup.add(inDataStream
-                .map {
-                    try {
-                        logger.debug { "command $id - sending data package - ${it.size} bytes..." }
-                        onSendData(it)
-                    } catch (err: Exception) {
-                        logger.error{ "command $id - error executing send ${err.message} <${err.javaClass.name}>"}
-                        throw err
-                    }
-                }
-                .subscribe({},
-                    { err ->
-                        outDataStream.onError(err)
-                        tryCloseStream.invoke()
-                    },
-                    {
-                        tryCloseStream.invoke()
-                    }))
-        }
-    }
-
-    companion object {
-        private val logger = KotlinLogging.logger {}
+private class CommandRequest(val id: Int, val request: ByteArray, val responseConsumer: FluxSink<Byte>, var cleanup: Disposable? = null) : Disposable {
+    override fun dispose() {
+        cleanup?.dispose()
     }
 }
+
+private class RetryableException(msg: String) : Exception(msg)
 

@@ -20,11 +20,12 @@ devices:
     - name: ProductionMeter
       id: 1
       serialPort: COM4
-      deviceFunctions: [TOTAL_POWER, PRODUCED_POWER, CONSUMED_POWER]
+      deviceFunctions: [TOTAL_POWER, EXPORT_POWER, IMPORT_POWER]
 #    - name: MainMeter
 #      id: 2
 #      serialPort: COM4
+#      deviceFunctions: [TOTAL_POWER, PRODUCED_POWER, CONSUMED_POWER, CURRENT_POWER]
 logging:
   level:
-    root: DEBUG
-#      deviceFunctions: [TOTAL_POWER, PRODUCED_POWER, CONSUMED_POWER, CURRENT_POWER]
+    root: INFO
+    com.gcs: DEBUG

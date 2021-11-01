@@ -92,7 +92,6 @@
                 <scope>test</scope>
             </dependency>
 
-
             <!-- https://yidongnan.github.io/grpc-spring-boot-starter/en/server/getting-started.html -->
         </dependencies>
     </dependencyManagement>

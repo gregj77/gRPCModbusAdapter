@@ -31,12 +31,11 @@ message DeviceReadRequest {
   repeated ReadRequest readRequests = 2;
 }
 
-message ReadResponse {
-  DeviceFunction functionName = 1;
-  float value = 2;
-};
 
 message DeviceReadResponse {
   google.protobuf.Timestamp time = 1;
-  repeated ReadResponse readResponses = 2;
+  DeviceFunction functionName = 2;
+  string value = 3;
+  string dataType = 4;
+  string unit = 5;
 }

@@ -36,14 +36,15 @@ class Dummy(val appCtx: ApplicationContext, val powerFunction: ReadTotalPowerFun
 
 
         var i = 200
-        val sleep = 1000L
+        val sleep = 3000L
         while (i-- > 0) {
             try {
                 println("--------------------")
-                println(powerFunction.execute(ReadTotalPowerFunctionArgs(port!!, 1, RegisterId.TOTAL_POWER)).get())
-                println(powerFunction.execute(ReadTotalPowerFunctionArgs(port!!, 1, RegisterId.IMPORT_POWER)).get())
-                println(powerFunction.execute(ReadTotalPowerFunctionArgs(port!!, 1, RegisterId.EXPORT_POWER)).get())
-                println(readInstantPower.execute(ReadCurrentPowerFunctionArgs(port!!, 1)).get())
+                powerFunction.execute(ReadTotalPowerFunctionArgs(port!!, 1, RegisterId.TOTAL_POWER)).subscribe { println(it) }
+                powerFunction.execute(ReadTotalPowerFunctionArgs(port!!, 1, RegisterId.IMPORT_POWER)).subscribe { println(it) }
+                powerFunction.execute(ReadTotalPowerFunctionArgs(port!!, 1, RegisterId.EXPORT_POWER)).subscribe{ println(it) }
+                readInstantPower.execute(ReadCurrentPowerFunctionArgs(port!!, 1)).subscribe{ println(it) }
+                Thread.sleep(sleep)
                 println("next call!")
             } catch (err: Exception) {
                 println(err.toString())

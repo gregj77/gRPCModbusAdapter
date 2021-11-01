@@ -2,8 +2,9 @@ package com.gcs.gRPCModbusAdapter.functions
 
 import com.gcs.gRPCModbusAdapter.functions.args.FunctionArgs
 import com.gcs.gRPCModbusAdapter.functions.utils.MessageCRCService
-import io.reactivex.rxjava3.core.Observable
 import mu.KotlinLogging
+import reactor.core.publisher.Mono
+import java.time.Duration
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 
@@ -14,20 +15,18 @@ interface ModbusFunction {
 abstract class ModbusFunctionBase<in TArgs : FunctionArgs, TResult>(private val crcService: MessageCRCService, private val responseMessageSize: Int) : ModbusFunction{
     private val logger = KotlinLogging.logger(this.javaClass.name)
 
-    fun execute(args: TArgs): CompletableFuture<TResult> {
+    fun execute(args: TArgs): Mono<TResult> {
         logger.debug { "preparing message for ${args.deviceId} to query ${args.registerId} ..." }
         val request = args.toMessage { crcService.calculateCRC(it) }
         logger.debug { "message for ${args.deviceId} to query ${args.registerId} - calculated ${request.size} bytes" }
         val response = ByteArray(responseMessageSize)
         var idx = 0
         return args.driver
-            .establishStream(Observable.just(request))
+            .communicateAsync(request)
             .take(response.size.toLong())
             .collect( { response }, { buffer, byte -> buffer[idx++] = byte })
             .map { extractOrThrow(args, it) }
-            .timeout(1L, TimeUnit.MINUTES)
-            .toCompletionStage()
-            .toCompletableFuture()
+            .timeout(Duration.ofSeconds(60L))
     }
 
     private fun extractOrThrow(args: TArgs, response: ByteArray): TResult {
