@@ -17,12 +17,12 @@ import java.util.stream.Collectors
 import javax.annotation.PreDestroy
 
 @Configuration
-class SerialPortManagementConfig(configuration: Ports, serialPortFactory: (String) -> RXTXPort, appCtx: GenericWebApplicationContext, private val registry: MeterRegistry) {
+class SerialPortManagementConfig(configuration: Ports, serialPortFactory: (String) -> RXTXPort, hardwareErrorPortCleaner: (String) -> Unit, appCtx: GenericWebApplicationContext, private val registry: MeterRegistry) {
 
     private val ports: Map<String, SerialPortDriverImpl>
 
     init {
-        val scheduler = Schedulers.io()
+        val scheduler = Schedulers.single()
         ports = configuration
             .entries
             .stream()
@@ -36,7 +36,7 @@ class SerialPortManagementConfig(configuration: Ports, serialPortFactory: (Strin
 
                 val writeCounter = registry.counter("serial_port_bytes_written", tags)
                 val readCounter = registry.counter("serial_port_bytes_read", tags)
-                val driver = SerialPortDriverImpl(it, scheduler, serialPortFactory, writeCounter, readCounter)
+                val driver = SerialPortDriverImpl(it, scheduler, serialPortFactory, hardwareErrorPortCleaner, writeCounter, readCounter)
                 registry.gauge("serial_port_is_up", tags, driver) { p -> if (p.isRunning) 1.0 else 0.0 }
                 appCtx.registerBean(it.name, SerialPortDriver::class.java, Supplier { driver })
                 return@map driver
@@ -51,6 +51,9 @@ class SerialPortManagementConfig(configuration: Ports, serialPortFactory: (Strin
 
     @Bean(SerialPortsHealthContributor)
     fun healthContributors(): Map<String, HealthContributor> = ports
+
+    @Bean
+    fun serialPorts(): Array<SerialPortDriver> = ports.values.toTypedArray()
 
     companion object {
         const val SerialPortsHealthContributor = "SerialPortHealth"

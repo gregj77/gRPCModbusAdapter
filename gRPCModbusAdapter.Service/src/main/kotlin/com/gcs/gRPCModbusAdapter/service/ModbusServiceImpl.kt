@@ -1,5 +1,6 @@
 package com.gcs.gRPCModbusAdapter.service
 
+import io.grpc.stub.ServerCallStreamObserver
 import io.grpc.stub.StreamObserver
 import net.devh.boot.grpc.server.service.GrpcService
 
@@ -12,6 +13,10 @@ class ModbusServiceImpl : ModbusDeviceServiceGrpc.ModbusDeviceServiceImplBase() 
         responseObserver: StreamObserver<DeviceReadResponse>
     ) {
 
+        val stream = responseObserver as ServerCallStreamObserver<DeviceReadResponse>
+        responseObserver.setOnCancelHandler {  }
+
+        //stream.onNext()
 
     }
 }

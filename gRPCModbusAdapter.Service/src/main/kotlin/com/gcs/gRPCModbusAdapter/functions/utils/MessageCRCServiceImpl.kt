@@ -3,8 +3,14 @@ package com.gcs.gRPCModbusAdapter.functions.utils
 import org.springframework.stereotype.Service
 
 
+interface MessageCRCService {
+    fun calculateCRC(msg: ByteArray)
+
+    fun checkCrc(msg: ByteArray): Boolean
+}
+
 @Service
-class MessageCRCService {
+class MessageCRCServiceImpl : MessageCRCService {
     companion object CRC {
         val initial: UInt = 0xffffL.toUInt()
 
@@ -47,14 +53,14 @@ class MessageCRCService {
     }
 
     @ExperimentalUnsignedTypes
-    fun calculateCRC(msg: ByteArray) {
+    override fun calculateCRC(msg: ByteArray) {
         val crc = calculateInternal(msg, msg.size - 2)
         msg[msg.size - 2] = crc[0]
         msg[msg.size - 1] = crc[1]
     }
 
     @ExperimentalUnsignedTypes
-    fun checkCrc(msg: ByteArray): Boolean {
+    override fun checkCrc(msg: ByteArray): Boolean {
         val crc = calculateInternal(msg, msg.size - 2)
         val incomingCrc = msg.takeLast(2)
 

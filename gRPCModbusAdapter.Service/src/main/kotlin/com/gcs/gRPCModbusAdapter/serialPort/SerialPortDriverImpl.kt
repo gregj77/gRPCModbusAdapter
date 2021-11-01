@@ -9,6 +9,7 @@ import io.micrometer.core.instrument.Counter
 import io.reactivex.rxjava3.core.*
 import io.reactivex.rxjava3.disposables.CompositeDisposable
 import io.reactivex.rxjava3.disposables.Disposable
+import io.reactivex.rxjava3.disposables.SerialDisposable
 import io.reactivex.rxjava3.subjects.PublishSubject
 import mu.KotlinLogging
 import org.springframework.boot.actuate.health.Health
@@ -28,14 +29,14 @@ interface SerialPortDriver : Disposable {
     fun establishStream(dataStream: Observable<ByteArray>) : Observable<Byte>
 }
 
-
 class SerialPortDriverImpl(
     private val cfg: SerialPortConfig,
     private val scheduler: Scheduler,
-    serialPortFactory: (String) -> RXTXPort,
+    private val serialPortFactory: (String) -> RXTXPort,
+    private val hardwareErrorPortCleaner: (String) -> Unit,
     private val writeCounter: Counter,
     private val readCounter: Counter
-) : SerialPortDriver, HealthIndicator, HealthContributor {
+) : SerialPortDriver, HealthIndicator {
     private val logger = KotlinLogging.logger {}
 
     override val name: String
@@ -52,10 +53,14 @@ class SerialPortDriverImpl(
 
 
     private val requestStream = PublishSubject.create<Observable<CommunicationRequest>>()
-    private val subscription: Disposable
+    private val subscription: SerialDisposable = SerialDisposable()
     private var lastError: String? = null
 
     init {
+        internalInitialize(false)
+    }
+
+    private fun internalInitialize(canRetryInitialization: Boolean) {
         logger.info { "Initializing serial port driver with settings $cfg" }
         val initialSubscription = requestStream
             .flatMap { it }
@@ -64,7 +69,7 @@ class SerialPortDriverImpl(
             .subscribe {
                 it.outDataStream.onError(IllegalStateException("port ${cfg.name} is not yet initialized!"))
             }
-        subscription = Observable.create<Observable<Byte>> { observer ->
+        subscription.set(Observable.create<Observable<Byte>> { observer ->
             try {
                 val serialPort = serialPortFactory(cfg.name)
                 logger.info { "setting port parameters..." }
@@ -79,8 +84,8 @@ class SerialPortDriverImpl(
                     .flatMap { it }
                     .concatMap {
                         it.processCommunicationStream(activeDataEmitterRef) { bytes ->
-                            writeCounter.increment(bytes.size.toDouble())
                             outputByteStream.write(bytes)
+                            writeCounter.increment(bytes.size.toDouble())
                         }
                     }
                     .observeOn(scheduler)
@@ -107,7 +112,7 @@ class SerialPortDriverImpl(
                     serialPort.close()
                 }
 
-                logger.debug { "all is initialized - disposing initial subscription" }
+                logger.info { "all is initialized - disposing initial subscription" }
                 initialSubscription.dispose()
 
             } catch (err: Exception) {
@@ -118,8 +123,8 @@ class SerialPortDriverImpl(
                 return@retryWhen errorStream
                     .flatMap {
                         error ->
-                        val canRetry = error is PortInUseException
-                        logger.warn { "got error ${error.message} <${error.javaClass.name}> retry: $canRetry" }
+                        val canRetry = canRetryInitialization or (error is PortInUseException)
+                        logger.warn { "$name: got error ${error.message} <${error.javaClass.name}> retry: $canRetry" }
                         if (canRetry)  Observable.just(1).delay(5_000L, TimeUnit.MILLISECONDS, scheduler)
                         else Observable.error(error)
                     }
@@ -129,7 +134,7 @@ class SerialPortDriverImpl(
                 { err ->
                     lastError = "cannot initialize serial port ${cfg.name} - ${err.message} <${err.javaClass.name}>"
                     logger.error { lastError }
-                })
+                }))
     }
 
 
@@ -173,15 +178,24 @@ class SerialPortDriverImpl(
         byteArray: ByteArray
     ) {
 
-        if (args.eventType == SerialPortEvent.DATA_AVAILABLE) {
-            val dataReadyCallback = dataReadyCallbackReference.get()
-            while (inputByteStream.available() > 0) {
-                val read = inputByteStream.read(byteArray)
-                readCounter.increment(read.toDouble())
-                for (i in 0 until read) dataReadyCallback?.onNext(byteArray[i])
+        when (args.eventType) {
+            SerialPortEvent.DATA_AVAILABLE -> {
+                val dataReadyCallback = dataReadyCallbackReference.get()
+                while (inputByteStream.available() > 0) {
+                    val read = inputByteStream.read(byteArray)
+                    readCounter.increment(read.toDouble())
+                    for (i in 0 until read) dataReadyCallback?.onNext(byteArray[i])
+                }
             }
-        } else {
-            logger.info { "got new event : ${args.eventType} - ${args.oldValue} -> ${args.newValue}" }
+            SerialPortEvent.HARDWARE_ERROR -> {
+                logger.warn { "$name - received hardware error event" }
+                subscription.set(Disposable.empty())
+                hardwareErrorPortCleaner(name)
+                internalInitialize(true)
+            }
+            else -> {
+                logger.info { "$name - got new event : ${args.eventType} - ${args.oldValue} -> ${args.newValue}" }
+            }
         }
     }
 }
@@ -217,7 +231,14 @@ private data class CommunicationRequest(val id: Int, val inDataStream: Observabl
                         throw err
                     }
                 }
-                .subscribe({}, requestObserver::onError, tryCloseStream::invoke ))
+                .subscribe({},
+                    { err ->
+                        outDataStream.onError(err)
+                        tryCloseStream.invoke()
+                    },
+                    {
+                        tryCloseStream.invoke()
+                    }))
         }
     }
 

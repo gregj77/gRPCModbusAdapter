@@ -1,6 +1,7 @@
 package com.gcs.gRPCModbusAdapter
 
 import com.gcs.gRPCModbusAdapter.functions.*
+import com.gcs.gRPCModbusAdapter.functions.args.CheckStateFunctionArgs
 import com.gcs.gRPCModbusAdapter.functions.args.ReadCurrentPowerFunctionArgs
 import com.gcs.gRPCModbusAdapter.functions.args.ReadTotalPowerFunctionArgs
 import com.gcs.gRPCModbusAdapter.functions.args.RegisterId
@@ -27,23 +28,27 @@ fun main(args: Array<String>) {
 
 @Component
 @Profile("debug")
-class Dummy(val appCtx: ApplicationContext, val powerFunction: ReadTotalPowerFunction, val readInstantPower: ReadCurrentPowerFunction) : CommandLineRunner {
+class Dummy(val appCtx: ApplicationContext, val powerFunction: ReadTotalPowerFunction, val readInstantPower: ReadCurrentPowerFunction, val checkStateFunction: CheckStateFunction) : CommandLineRunner {
     override fun run(vararg args: String?) {
         println("ok...")
 
         val  port = appCtx.getBean("COM4") as SerialPortDriver
 
+
         var i = 200
         val sleep = 1000L
         while (i-- > 0) {
-            println(powerFunction.execute(ReadTotalPowerFunctionArgs(port!!, 1, RegisterId.TOTAL_POWER)).get())
-            Thread.sleep(sleep)
-            println(powerFunction.execute(ReadTotalPowerFunctionArgs(port!!, 1, RegisterId.IMPORT_POWER)).get())
-            Thread.sleep(sleep)
-            println(powerFunction.execute(ReadTotalPowerFunctionArgs(port!!, 1, RegisterId.EXPORT_POWER)).get())
-            Thread.sleep(sleep)
-            println("next call!")
-            println(readInstantPower.execute(ReadCurrentPowerFunctionArgs(port!!, 1)).get())
+            try {
+                println("--------------------")
+                println(powerFunction.execute(ReadTotalPowerFunctionArgs(port!!, 1, RegisterId.TOTAL_POWER)).get())
+                println(powerFunction.execute(ReadTotalPowerFunctionArgs(port!!, 1, RegisterId.IMPORT_POWER)).get())
+                println(powerFunction.execute(ReadTotalPowerFunctionArgs(port!!, 1, RegisterId.EXPORT_POWER)).get())
+                println(readInstantPower.execute(ReadCurrentPowerFunctionArgs(port!!, 1)).get())
+                println("next call!")
+            } catch (err: Exception) {
+                println(err.toString())
+                Thread.sleep(5_000L)
+            }
         }
     }
 

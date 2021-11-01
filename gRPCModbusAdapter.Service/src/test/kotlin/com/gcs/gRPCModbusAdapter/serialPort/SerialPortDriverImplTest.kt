@@ -54,7 +54,7 @@ internal class SerialPortDriverImplTest {
 
         serialPortFactory = { throw IllegalArgumentException("no such port $it")}
 
-        val victim = SerialPortDriverImpl(cfg, Schedulers.io(), serialPortFactory!!, writeCounter!!, readCounter!!)
+        val victim = SerialPortDriverImpl(cfg, Schedulers.io(), serialPortFactory!!, {}, writeCounter!!, readCounter!!)
 
         assertThat(victim.isRunning).isFalse
 
@@ -73,7 +73,7 @@ internal class SerialPortDriverImplTest {
             throw PortInUseException()
         }
 
-        val victim = SerialPortDriverImpl(cfg, scheduler!!, serialPortFactory!!, writeCounter!!, readCounter!!)
+        val victim = SerialPortDriverImpl(cfg, scheduler!!, serialPortFactory!!, {}, writeCounter!!, readCounter!!)
 
         scheduler!!.advanceTimeBy(59L, TimeUnit.SECONDS)
 
@@ -93,7 +93,7 @@ internal class SerialPortDriverImplTest {
             commPort
         }
 
-        val victim = SerialPortDriverImpl(cfg, scheduler!!, serialPortFactory!!, writeCounter!!, readCounter!!)
+        val victim = SerialPortDriverImpl(cfg, scheduler!!, serialPortFactory!!, {}, writeCounter!!, readCounter!!)
 
         verify { commPort.setSerialPortParams(9600, 8, StopBits.STOPBITS_1.value, Parity.NONE.value) }
         verify { commPort.inputStream }
@@ -131,7 +131,7 @@ internal class SerialPortDriverImplTest {
             dataReadyCallback = it.invocation.args[0] as SerialPortEventListener
         }
 
-        val victim = SerialPortDriverImpl(cfg, scheduler!!, serialPortFactory!!, writeCounter!!, readCounter!!)
+        val victim = SerialPortDriverImpl(cfg, scheduler!!, serialPortFactory!!, {}, writeCounter!!, readCounter!!)
 
         assertThat(victim.isRunning).isTrue
 
