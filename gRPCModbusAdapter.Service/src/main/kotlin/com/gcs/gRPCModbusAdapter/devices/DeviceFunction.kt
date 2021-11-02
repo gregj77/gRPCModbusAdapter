@@ -44,7 +44,7 @@ private fun queryCurrentPower(sender: ModbusDeviceImpl) : Mono<DeviceResponse> {
         .map { DeviceResponse(sender.name, DeviceFunction.CURRENT_POWER, it.toString(), it.javaClass.name, DeviceFunction.CURRENT_POWER.unit) }
 }
 
-internal val FunctionToQuery = mapOf<DeviceFunction, (ModbusDeviceImpl) -> Mono<DeviceResponse>>(
+internal val NativeFunctionQuery = mapOf<DeviceFunction, (ModbusDeviceImpl) -> Mono<DeviceResponse>>(
     DeviceFunction.TOTAL_POWER to ::queryTotalPower,
     DeviceFunction.EXPORT_POWER to ::queryExportedPower,
     DeviceFunction.IMPORT_POWER to ::queryImportedPower,

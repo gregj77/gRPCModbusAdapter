@@ -38,6 +38,7 @@ class ModbusDeviceImpl(
         val checkStateFunc = functionServices[DeviceFunction.DEVICE_ID.functionServiceName] as ModbusFunctionBase<CheckStateFunctionArgs, Byte>
         return checkStateFunc
             .execute(CheckStateFunctionArgs(port, deviceId))
+            .map { if (it != deviceId) throw IllegalStateException("Invalid device id") else it }
             .map { Health.up().build() }
             .timeout(Duration.ofSeconds(5L))
             .onErrorResume { Mono.just(Health.down().withDetail("error", it.message).build()) }
@@ -49,15 +50,19 @@ class ModbusDeviceImpl(
     override fun queryDevice(function: DeviceFunction): Mono<DeviceResponse> {
         if (!functions.contains(function)) {
             logger.warn { "Device $name doesn't support function $function" }
+            callCounter.increment()
             return Mono.error(IllegalArgumentException("Function $function is not supported by $name"))
         }
 
-        if (!FunctionToQuery.containsKey(function)) {
+        if (!NativeFunctionQuery.containsKey(function)) {
             logger.warn { "FunctionToQuery mapping doesn't contain entry for $function" }
+            callCounter.increment()
             return Mono.error(IllegalStateException("Configuration issue - FunctionToQuery doesn't contain $function mapping!"))
         }
 
-        return FunctionToQuery[function]!!.invoke(this)
+        return NativeFunctionQuery[function]!!
+            .invoke(this)
+            .doOnEach { if (it.isOnNext or it.isOnError) callCounter.increment() }
     }
 
     override fun supportsFunction(functionName: String): Boolean {
