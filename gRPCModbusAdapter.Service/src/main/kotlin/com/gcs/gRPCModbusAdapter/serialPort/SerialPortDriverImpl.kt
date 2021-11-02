@@ -192,14 +192,10 @@ class SerialPortDriverImpl(
     override fun health(): Health {
         return if (isRunning) {
             Health.up().build()
-        } else if (lastError != null) {
-            if (subscription.isDisposed) {
-                Health.down().withDetail("lastError", lastError).build()
-            } else {
-                Health.outOfService().withDetail("lastError", lastError).build()
-            }
-        } else {
+        } else if (subscription.isDisposed) {
             Health.down().withDetail("status", "already disposed").build()
+        } else {
+            Health.outOfService().withDetail("lastError", lastError).build()
         }
     }
 

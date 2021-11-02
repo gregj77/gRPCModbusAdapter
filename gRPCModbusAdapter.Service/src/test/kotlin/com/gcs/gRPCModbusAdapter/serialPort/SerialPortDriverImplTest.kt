@@ -18,12 +18,12 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.springframework.boot.actuate.health.Status
 import reactor.core.scheduler.Schedulers
 import reactor.test.scheduler.VirtualTimeScheduler
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.time.Duration
-import java.util.concurrent.TimeUnit
 
 internal class SerialPortDriverImplTest {
 
@@ -78,6 +78,9 @@ internal class SerialPortDriverImplTest {
 
         assertThat(victim.isRunning).isFalse
         assertThat(count).isEqualTo( 60 / 5)
+
+        val health = victim.health()
+        assertThat(health.status).isEqualTo(Status.OUT_OF_SERVICE)
     }
 
     @Test
@@ -102,8 +105,14 @@ internal class SerialPortDriverImplTest {
         confirmVerified(commPort)
 
         assertThat(victim.isRunning).isTrue
+        val upHealth = victim.health()
+        assertThat(upHealth.status).isEqualTo(Status.UP)
+
         victim.dispose()
         assertThat(victim.isRunning).isFalse
+        val disposedHealth = victim.health()
+        assertThat(disposedHealth.status).isEqualTo(Status.DOWN)
+
     }
 
     @Test

@@ -5,8 +5,6 @@ import com.gcs.gRPCModbusAdapter.functions.utils.MessageCRCService
 import mu.KotlinLogging
 import reactor.core.publisher.Mono
 import java.time.Duration
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.TimeUnit
 
 interface ModbusFunction {
     val functionName: String

@@ -2,7 +2,6 @@ package com.gcs.gRPCModbusAdapter.functions
 
 import com.gcs.gRPCModbusAdapter.functions.args.CheckStateFunctionArgs
 import com.gcs.gRPCModbusAdapter.functions.utils.MessageCRCService
-import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.stereotype.Service
 
 @Service
