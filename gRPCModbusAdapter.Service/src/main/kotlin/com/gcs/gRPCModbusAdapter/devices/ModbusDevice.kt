@@ -16,10 +16,10 @@ interface ModbusDevice {
     val commandsProcessed: Int
 
     fun queryDevice(function: DeviceFunction): Mono<DeviceResponse>
-
+    fun supportsFunction(functionName: String): Boolean
 }
 
-data class DeviceResponse(val function: DeviceFunction, val data: String, val dataType: String, val unit: String)
+data class DeviceResponse(val deviceName: String, val function: DeviceFunction, val data: String, val dataType: String, val unit: String)
 
 class ModbusDeviceImpl(
     val deviceId: Byte,
@@ -58,5 +58,14 @@ class ModbusDeviceImpl(
         }
 
         return FunctionToQuery[function]!!.invoke(this)
+    }
+
+    override fun supportsFunction(functionName: String): Boolean {
+        return try {
+            DeviceFunction.valueOf(functionName)
+            true
+        } catch (error: Exception) {
+            false
+        }
     }
 }

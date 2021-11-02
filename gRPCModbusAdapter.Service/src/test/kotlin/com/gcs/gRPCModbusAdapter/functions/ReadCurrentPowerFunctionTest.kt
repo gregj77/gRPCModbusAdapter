@@ -54,7 +54,7 @@ internal class ReadCurrentPowerFunctionTest {
         assertThrows(CrcCheckError::class.java) {
             try {
                 victim.execute(ReadCurrentPowerFunctionArgs(driverMock, 1)).block()
-            } catch (err: ExecutionException) {
+            } catch (err: Exception) {
                 throw err.cause!!
             }
         }

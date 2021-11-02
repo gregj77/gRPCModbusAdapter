@@ -17,6 +17,7 @@ import reactor.util.retry.Retry
 import java.io.InputStream
 import java.time.Duration
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
@@ -61,6 +62,7 @@ class SerialPortDriverImpl(
 
         subscription = Flux.create<Unit> { observer ->
             try {
+                logger.debug { "initializing serial port [${scheduler.now(TimeUnit.SECONDS)}]" }
                 val serialPort = serialPortFactory(cfg.name)
                 logger.debug { "setting port parameters..." }
                 serialPort.setSerialPortParams(cfg.baudRate, cfg.dataBits, cfg.stopBits.value, cfg.parity.value)
@@ -122,11 +124,11 @@ class SerialPortDriverImpl(
                 observer.error(RetryableException("$name - PortInUse: ${err.message}"))
             } catch (err: Exception) {
                 lastError = "unhandled error - ${err.message} <${err.javaClass.name}>"
-                observer.error(err)
+                observer.error(RetryableException("$name - ${err.message} <${err.javaClass.name}>"))
             }
         }
             .retryWhen(
-                Retry.backoff(Long.MAX_VALUE, Duration.ofSeconds(5L)).filter { err -> err is RetryableException })
+                Retry.fixedDelay(Long.MAX_VALUE, Duration.ofSeconds(5L)).scheduler(scheduler))
             .subscribe(
                 { logger.info { "serial port $name is up and running with settings $cfg" } },
                 { err ->

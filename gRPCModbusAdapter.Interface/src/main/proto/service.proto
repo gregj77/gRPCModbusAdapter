@@ -9,8 +9,17 @@ option java_outer_classname = "MeterManagementService";
 import "google/protobuf/timestamp.proto";
 
 service ModbusDeviceService {
-  rpc subscribeForDeviceData (DeviceReadRequest) returns (stream DeviceReadResponse) {
+  rpc subscribeForDeviceData (Query) returns (stream Response) {
   }
+}
+
+message Query {
+  repeated DeviceRequest request = 1;
+}
+
+message DeviceRequest {
+  string deviceName = 1;
+  repeated Request readRequests = 2;
 }
 
 enum DeviceFunction {
@@ -21,21 +30,16 @@ enum DeviceFunction {
   CURRENT_POWER = 4;
 };
 
-message ReadRequest {
+message Request {
   DeviceFunction functionName = 1;
   uint32 readIntervalInSeconds = 2;
 }
 
-message DeviceReadRequest {
-  string deviceName = 1;
-  repeated ReadRequest readRequests = 2;
-}
-
-
-message DeviceReadResponse {
+message Response {
   google.protobuf.Timestamp time = 1;
-  DeviceFunction functionName = 2;
-  string value = 3;
-  string dataType = 4;
-  string unit = 5;
+  string deviceName = 2;
+  DeviceFunction functionName = 3;
+  string value = 4;
+  string dataType = 5;
+  string unit = 6;
 }

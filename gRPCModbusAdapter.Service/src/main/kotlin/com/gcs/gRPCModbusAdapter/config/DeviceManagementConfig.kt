@@ -76,6 +76,5 @@ class DeviceManagementConfig(
     companion object {
         const val DeviceHealthContributor = "ModbusDeviceHealth"
         const val Devices = "devices"
-
     }
 }

@@ -20,28 +20,28 @@ private fun queryTotalPower(sender: ModbusDeviceImpl) : Mono<DeviceResponse> {
     val function = sender.functionServices[ReadTotalPowerFunction.FunctionName] as ReadTotalPowerFunction
     return function
         .execute(ReadTotalPowerFunctionArgs(sender.port, sender.deviceId, RegisterId.TOTAL_POWER))
-        .map { DeviceResponse(DeviceFunction.TOTAL_POWER, it.toString(), it.javaClass.name, DeviceFunction.TOTAL_POWER.unit) }
+        .map { DeviceResponse(sender.name, DeviceFunction.TOTAL_POWER, it.toString(), it.javaClass.name, DeviceFunction.TOTAL_POWER.unit) }
 }
 
 private fun queryExportedPower(sender: ModbusDeviceImpl) : Mono<DeviceResponse> {
     val function = sender.functionServices[ReadTotalPowerFunction.FunctionName] as ReadTotalPowerFunction
     return function
         .execute(ReadTotalPowerFunctionArgs(sender.port, sender.deviceId, RegisterId.EXPORT_POWER))
-        .map { DeviceResponse(DeviceFunction.EXPORT_POWER, it.toString(), it.javaClass.name, DeviceFunction.EXPORT_POWER.unit) }
+        .map { DeviceResponse(sender.name, DeviceFunction.EXPORT_POWER, it.toString(), it.javaClass.name, DeviceFunction.EXPORT_POWER.unit) }
 }
 
 private fun queryImportedPower(sender: ModbusDeviceImpl) : Mono<DeviceResponse> {
     val function = sender.functionServices[ReadTotalPowerFunction.FunctionName] as ReadTotalPowerFunction
     return function
         .execute(ReadTotalPowerFunctionArgs(sender.port, sender.deviceId, RegisterId.IMPORT_POWER))
-        .map { DeviceResponse(DeviceFunction.IMPORT_POWER, it.toString(), it.javaClass.name, DeviceFunction.IMPORT_POWER.unit) }
+        .map { DeviceResponse(sender.name, DeviceFunction.IMPORT_POWER, it.toString(), it.javaClass.name, DeviceFunction.IMPORT_POWER.unit) }
 }
 
 private fun queryCurrentPower(sender: ModbusDeviceImpl) : Mono<DeviceResponse> {
     val function = sender.functionServices[ReadCurrentPowerFunction.FunctionName] as ReadCurrentPowerFunction
     return function
         .execute(ReadCurrentPowerFunctionArgs(sender.port, sender.deviceId))
-        .map { DeviceResponse(DeviceFunction.CURRENT_POWER, it.toString(), it.javaClass.name, DeviceFunction.CURRENT_POWER.unit) }
+        .map { DeviceResponse(sender.name, DeviceFunction.CURRENT_POWER, it.toString(), it.javaClass.name, DeviceFunction.CURRENT_POWER.unit) }
 }
 
 internal val FunctionToQuery = mapOf<DeviceFunction, (ModbusDeviceImpl) -> Mono<DeviceResponse>>(

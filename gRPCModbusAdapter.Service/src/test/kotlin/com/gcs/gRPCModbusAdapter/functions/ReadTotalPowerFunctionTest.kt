@@ -53,7 +53,7 @@ internal class ReadTotalPowerFunctionTest {
         assertThrows(CrcCheckError::class.java) {
             try {
                 victim.execute(ReadTotalPowerFunctionArgs(driverMock, 1, RegisterId.TOTAL_POWER)).block()
-            } catch (err: ExecutionException) {
+            } catch (err: Exception) {
                 throw err.cause!!
             }
         }
