@@ -57,7 +57,6 @@ internal class ModbusServiceImplTest {
 
         val victim = ModbusServiceImpl(adapter)
 
-        var error: Throwable? = null
         val items = mutableListOf<Response>()
         var completeCalled = false
         var onCancelHandler: Runnable? = null

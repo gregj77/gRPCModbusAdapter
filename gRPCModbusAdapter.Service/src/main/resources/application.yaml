@@ -9,23 +9,10 @@ management:
       exposure:
         include: health,prometheus
 ports:
-  entries:
-    - name: COM4
-      baudRate: 9600
-      dataBits: 8
-      parity: NONE
-      stopBits: STOPBITS_1
+  entries: []
 devices:
-  entries:
-    - name: ProductionMeter
-      id: 1
-      serialPort: COM4
-      deviceFunctions: [TOTAL_POWER, EXPORT_POWER, IMPORT_POWER]
-#    - name: MainMeter
-#      id: 2
-#      serialPort: COM4
-#      deviceFunctions: [TOTAL_POWER, PRODUCED_POWER, CONSUMED_POWER, CURRENT_POWER]
+  entries: []
 logging:
   level:
     root: INFO
-    com.gcs: DEBUG
+    com.gcs: INFO
