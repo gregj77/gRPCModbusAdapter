@@ -1,0 +1,31 @@
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+ports:
+  entries:
+    - name: COM4
+      baudRate: 9600
+      dataBits: 8
+      parity: NONE
+      stopBits: STOPBITS_1
+devices:
+  entries:
+    - name: ProductionMeter
+      id: 1
+      serialPort: COM4
+      deviceFunctions: [TOTAL_POWER, EXPORT_POWER, IMPORT_POWER]
+#    - name: MainMeter
+#      id: 2
+#      serialPort: COM4
+#      deviceFunctions: [TOTAL_POWER, PRODUCED_POWER, CONSUMED_POWER, CURRENT_POWER]
+logging:
+  level:
+    root: INFO
+    com.gcs: DEBUG
