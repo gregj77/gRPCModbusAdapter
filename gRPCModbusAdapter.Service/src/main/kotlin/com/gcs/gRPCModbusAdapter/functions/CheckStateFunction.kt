@@ -9,7 +9,7 @@ class CheckStateFunction(crcService: MessageCRCService) : ModbusFunctionBase<Che
     override val functionName: String
         get() = FunctionName
 
-    override fun extractValue(response: ByteArray): Byte = response[4]
+    override fun extractValue(response: ByteArray): Byte = response[0]
 
     companion object {
         const val FunctionName = "ReadModbusDeviceId"

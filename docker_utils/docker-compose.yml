@@ -1,14 +1,16 @@
 version: "3.3"
 services:
   rs485-to-grpc:
-    image: pejs77/grpc-modbus-adapter:1.0.17
+    image: pejs77/grpc-modbus-adapter:1.0.43
     ports:
       - "8080:8080"
-      - "9111:9111"
+      - "9090:9090"
+      - "5005:5005"
     environment:
-      - "SPRING_PROFILES_ACTIVE=prod"
+      - "SPRING_PROFILES_ACTIVE=home"
+      - "JAVA_TOOL_OPTIONS=-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005 -XX:MaxRAM=128m -Xss256k -XX:ActiveProcessorCount=1"
     volumes:
-      - "./application-prod.yaml:/BOOT-INF/classes/application-prod.yaml"
+      - "/data/application-home.yaml:/BOOT-INF/classes/application-home.yaml"
     devices:
       - "/dev/ttyUSB0:/dev/ttyUSB0"
     deploy:
@@ -20,4 +22,3 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-
