@@ -34,7 +34,7 @@ internal class ReadCurrentPowerFunctionTest {
         val victim = ReadCurrentPowerFunction(crcService)
 
         val result = victim.execute(ReadCurrentPowerFunctionArgs(driverMock, 1)).block()
-        assertThat(result).isEqualTo(65.791f)
+        assertThat(result).isEqualTo(65791.0f)
         verify { crcService.calculateCRC(any()) }
         verify { crcService.checkCrc(any()) }
         verify { driverMock.communicateAsync(any()) }

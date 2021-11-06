@@ -10,8 +10,11 @@ import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import reactor.core.publisher.Flux
+import reactor.core.scheduler.Schedulers
 
 internal class ModbusServiceImplTest {
+
+    val scheduler = Schedulers.immediate()
 
 
     @Test
@@ -20,7 +23,7 @@ internal class ModbusServiceImplTest {
         every { device.name } returns "dummy"
         every { device.supportsFunction(eq(DeviceFunction.TOTAL_POWER.name)) } returns true
         every { device.supportsFunction(eq(DeviceFunction.CURRENT_POWER.name)) } returns false
-        val adapter = ModbusServiceAdapter(mapOf(device.name to device))
+        val adapter = ModbusServiceAdapter(mapOf(device.name to device), scheduler)
 
         val victim = ModbusServiceImpl(adapter)
 

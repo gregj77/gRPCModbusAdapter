@@ -11,7 +11,7 @@ class ReadCurrentPowerFunction(crcService: MessageCRCServiceImpl) : ModbusFuncti
     override val functionName: String
         get() = FunctionName
 
-    override fun extractValue(response: ByteArray): Float = response.toInt(3).toFloat() / 1000.0f
+    override fun extractValue(response: ByteArray): Float = response.toInt(3).toFloat()
 
     companion object {
         const val FunctionName = "ReadCurrentPower"

@@ -24,7 +24,7 @@ abstract class ModbusFunctionBase<in TArgs : FunctionArgs, TResult>(private val 
             .take(response.size.toLong())
             .collect( { response }, { buffer, byte -> buffer[idx++] = byte })
             .map { extractOrThrow(args, it) }
-            .timeout(Duration.ofSeconds(60L))
+            .timeout(Duration.ofSeconds(15L))
     }
 
     private fun extractOrThrow(args: TArgs, response: ByteArray): TResult {

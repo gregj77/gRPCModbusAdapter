@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.context.support.GenericWebApplicationContext
 import reactor.core.Disposable
+import reactor.core.scheduler.Scheduler
 import reactor.core.scheduler.Schedulers
 import java.util.function.Function
 import java.util.function.Supplier
@@ -22,12 +23,12 @@ class SerialPortManagementConfig(
     configuration: Ports,
     serialPortFactory: (String) -> RXTXPort,
     hardwareErrorPortCleaner: (String) -> Unit,
-    registry: MeterRegistry) {
+    registry: MeterRegistry,
+    scheduler: Scheduler) {
 
     private val ports: Map<String, SerialPortDriverImpl>
 
     init {
-        val scheduler = Schedulers.single()
         ports = configuration
             .entries
             .stream()

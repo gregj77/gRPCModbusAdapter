@@ -9,10 +9,12 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Schedulers
 import java.time.Instant
 
 internal class ModbusServiceAdapterTest {
 
+    val scheduler = Schedulers.single()
     var victim: ModbusServiceAdapter? = null
 
     @BeforeEach
@@ -22,7 +24,7 @@ internal class ModbusServiceAdapterTest {
 
     @Test
     fun subscribeForDeviceDataThrowsOnInvalidDevice() {
-        victim = ModbusServiceAdapter(emptyMap())
+        victim = ModbusServiceAdapter(emptyMap(), scheduler)
 
         assertThrows<IllegalArgumentException> {
             victim!!.subscribeForDeviceData("non-existing", "dummy", 0)
@@ -34,7 +36,7 @@ internal class ModbusServiceAdapterTest {
         val device = mockk<ModbusDevice>()
         every { device.name } returns "dummy"
         every { device.supportsFunction(any()) } returns false
-        victim = ModbusServiceAdapter(mapOf(device.name to device))
+        victim = ModbusServiceAdapter(mapOf(device.name to device), scheduler)
 
         assertThrows<IllegalArgumentException> {
             victim!!.subscribeForDeviceData(device.name, "non-existing", 0)
@@ -46,7 +48,7 @@ internal class ModbusServiceAdapterTest {
         val device = mockk<ModbusDevice>()
         every { device.name } returns "dummy"
         every { device.supportsFunction(eq(com.gcs.gRPCModbusAdapter.devices.DeviceFunction.TOTAL_POWER.name)) } returns true
-        victim = ModbusServiceAdapter(mapOf(device.name to device))
+        victim = ModbusServiceAdapter(mapOf(device.name to device), scheduler)
 
         assertThrows<IllegalArgumentException> {
             victim!!.subscribeForDeviceData(device.name, com.gcs.gRPCModbusAdapter.devices.DeviceFunction.TOTAL_POWER.name, -1)
@@ -61,7 +63,7 @@ internal class ModbusServiceAdapterTest {
         every { device.queryDevice(eq(com.gcs.gRPCModbusAdapter.devices.DeviceFunction.TOTAL_POWER)) } returns
                 Mono.just(DeviceResponse(device.name, com.gcs.gRPCModbusAdapter.devices.DeviceFunction.TOTAL_POWER, "1", "float", "kWh"))
 
-        victim = ModbusServiceAdapter(mapOf(device.name to device))
+        victim = ModbusServiceAdapter(mapOf(device.name to device), scheduler)
 
         val it = victim!!.subscribeForDeviceData(device.name, DeviceFunction.TOTAL_POWER.name, 0)
             .take(2)
@@ -80,7 +82,7 @@ internal class ModbusServiceAdapterTest {
         every { device.queryDevice(eq(com.gcs.gRPCModbusAdapter.devices.DeviceFunction.TOTAL_POWER)) } returns
                 Mono.just(DeviceResponse(device.name, com.gcs.gRPCModbusAdapter.devices.DeviceFunction.TOTAL_POWER, "1", "float", "kWh"))
 
-        victim = ModbusServiceAdapter(mapOf(device.name to device))
+        victim = ModbusServiceAdapter(mapOf(device.name to device), scheduler)
 
         val now = Instant.now().toEpochMilli()
         val it = victim!!.subscribeForDeviceData(device.name, DeviceFunction.TOTAL_POWER.name, 1)
@@ -90,7 +92,7 @@ internal class ModbusServiceAdapterTest {
         val elapsed = Instant.now().toEpochMilli() - now
 
         assertThat(it.size).isEqualTo(3)
-        assertThat(elapsed).isGreaterThanOrEqualTo(3_000)
+        assertThat(elapsed).isGreaterThanOrEqualTo(2_000)
     }
 
     @Test
@@ -113,7 +115,7 @@ internal class ModbusServiceAdapterTest {
             )
         }
 
-        victim = ModbusServiceAdapter(mapOf(device.name to device))
+        victim = ModbusServiceAdapter(mapOf(device.name to device), scheduler)
 
         val now = Instant.now().toEpochMilli()
         val it = victim!!.subscribeForDeviceData(device.name, DeviceFunction.TOTAL_POWER.name, 1)
@@ -123,6 +125,6 @@ internal class ModbusServiceAdapterTest {
         val elapsed = Instant.now().toEpochMilli() - now
 
         assertThat(it.size).isEqualTo(1)
-        assertThat(elapsed).isGreaterThanOrEqualTo(3_000)
+        assertThat(elapsed).isGreaterThanOrEqualTo(2_000)
     }
 }

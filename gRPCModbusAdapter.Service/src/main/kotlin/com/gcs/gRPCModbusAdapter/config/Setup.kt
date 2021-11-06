@@ -7,6 +7,8 @@ import gnu.io.ensurePortIsClosed
 import mu.KotlinLogging
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import reactor.core.scheduler.Scheduler
+import reactor.core.scheduler.Schedulers
 import java.util.concurrent.ConcurrentHashMap
 
 @Configuration
@@ -57,5 +59,10 @@ class Setup {
                 portInternalCloseStore.remove(portName)?.invoke()
             }
         }
+    }
+
+    @Bean
+    fun scheduler(): Scheduler {
+        return Schedulers.single()
     }
 }

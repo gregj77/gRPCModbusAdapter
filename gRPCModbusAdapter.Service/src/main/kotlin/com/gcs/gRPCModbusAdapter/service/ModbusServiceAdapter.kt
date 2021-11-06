@@ -6,11 +6,14 @@ import com.gcs.gRPCModbusAdapter.devices.ModbusDevice
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
+import reactor.core.scheduler.Scheduler
 import java.time.Duration
+import java.util.concurrent.atomic.AtomicLong
 
 @Service
-class ModbusServiceAdapter(private val devices: Map<String, ModbusDevice>) {
+class ModbusServiceAdapter(private val devices: Map<String, ModbusDevice>, private val scheduler: Scheduler) {
     private val logger = KotlinLogging.logger {}
+    private val delay = AtomicLong(0)
 
     fun subscribeForDeviceData(deviceName: String, functionName: String, interval: Int): Flux<DeviceResponse> {
 
@@ -34,17 +37,31 @@ class ModbusServiceAdapter(private val devices: Map<String, ModbusDevice>) {
             throw IllegalArgumentException("interval = $interval")
         }
 
+        val currentDelay = introduceInitialDelay()
         val query = (if (interval != 0) {
-            Flux.interval(Duration.ofSeconds(interval.toLong())).flatMap { device.queryDevice(function) }
+            Flux
+                .interval(
+                    Duration.ofMillis(currentDelay),
+                    Duration.ofSeconds(interval.toLong()),
+                    scheduler)
+                .flatMap { device.queryDevice(function) }
         } else {
-            Flux.defer { device.queryDevice(function) }
+            Flux
+                .interval(
+                    Duration.ofMillis(currentDelay),
+                    scheduler)
+                .take(1L)
+                .flatMap { device.queryDevice(function) }
         })
+            .doOnSubscribe { logger.info { "subscription $deviceName.$functionName activated every $interval s with delay $currentDelay ms" }  }
             .onErrorContinue { err, _ -> logger.warn { "got error $deviceName.$functionName - ${err.message} <${err.javaClass.name}>" } }
             .doOnNext { logger.debug { "next item from $functionName.$function = $it" } }
 
-        logger.info { "request $deviceName.$functionName validated - will start producing data every $interval" }
+        logger.info { "request $deviceName.$functionName validated - will start producing data every $interval seconds" }
 
         return query
     }
+
+    private fun introduceInitialDelay(): Long = delay.addAndGet(61L)
 
 }
