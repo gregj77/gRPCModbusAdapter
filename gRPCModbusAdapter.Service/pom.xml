@@ -247,6 +247,28 @@
                     </execution>
                 </executions>
             </plugin-->
+
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.0.0</version>
+                <executions>
+                    <execution>
+                        <id>enforce</id>
+                        <phase>verify</phase>
+                        <configuration>
+                            <goals>
+                                <goal>enforce</goal>
+                            </goals>
+                            <rules>
+                                <requireUpperBoundDeps/>
+                                <findAllDuplicates>true</findAllDuplicates>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 

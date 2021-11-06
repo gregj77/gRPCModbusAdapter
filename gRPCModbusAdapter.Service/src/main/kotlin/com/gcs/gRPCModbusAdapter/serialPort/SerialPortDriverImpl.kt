@@ -147,10 +147,14 @@ class SerialPortDriverImpl(
                 commands.offer(cmd)
 
                 consumer.onDispose {
-                    val leftCommands = commandsInProgress.decrementAndGet()
-                    logger.debug { "command $cmdId completed; commands left: $leftCommands" }
                     cmd.dispose()
-                    scheduler.schedule(this::processCommandQueue)
+                    scheduler.schedule({
+                        val leftCommands = commandsInProgress.decrementAndGet()
+                        logger.debug { "command $cmdId completed; commands left: $leftCommands" }
+                        if (leftCommands != 0) {
+                            processCommandQueue()
+                        }
+                    }, 31, TimeUnit.MILLISECONDS)
                 }
 
                 if (commandsInProgress.incrementAndGet() == 1) {
