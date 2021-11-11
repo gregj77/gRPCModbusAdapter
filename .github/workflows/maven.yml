@@ -45,7 +45,3 @@ jobs:
       if: github.ref == 'refs/heads/main'
       run: mvn -B docker:build docker:push
 
-    - name: Publish packages
-      run: mvn --batch-mode deploy
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
