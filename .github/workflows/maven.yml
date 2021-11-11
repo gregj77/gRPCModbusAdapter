@@ -45,6 +45,6 @@ jobs:
       run: mvn -B docker:build docker:push
 
     - name: Publish packages
-      run: mvn --batch-mod deploy
+      run: mvn --batch-mode deploy
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
