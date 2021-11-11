@@ -269,7 +269,8 @@
         <repository>
             <id>github</id>
             <name>GitHub packages for GCS</name>
-            <url>https://maven.pkg.github.com/gregj</url>
+            <url>https://maven.pkg.github.com/gregj77/gRPCModbusAdapter</url>
         </repository>
+
     </distributionManagement>
 </project>
