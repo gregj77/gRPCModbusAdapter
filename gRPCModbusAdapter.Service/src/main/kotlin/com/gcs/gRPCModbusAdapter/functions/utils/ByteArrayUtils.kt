@@ -11,3 +11,13 @@ internal fun ByteArray.toInt(dataStartIndex: Int): Int {
 
     return result
 }
+
+internal fun ByteArray.toShort(dataStartIndex: Int): Short {
+    require(dataStartIndex >= 0)
+    require(this.size - dataStartIndex >= 2)
+
+    var result = this[dataStartIndex].toInt().and(0xff).shl(8)
+    result = result.or(this[dataStartIndex+1].toInt().and(0xff))
+
+    return result.toShort()
+}

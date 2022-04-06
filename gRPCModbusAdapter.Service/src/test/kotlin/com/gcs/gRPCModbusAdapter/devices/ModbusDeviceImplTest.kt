@@ -4,40 +4,36 @@ import com.gcs.gRPCModbusAdapter.functions.ModbusFunction
 import com.gcs.gRPCModbusAdapter.functions.ModbusFunctionBase
 import com.gcs.gRPCModbusAdapter.functions.ReadTotalPowerFunction
 import com.gcs.gRPCModbusAdapter.functions.args.CheckStateFunctionArgs
-import com.gcs.gRPCModbusAdapter.functions.args.ReadTotalPowerFunctionArgs
 import com.gcs.gRPCModbusAdapter.serialPort.SerialPortDriver
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.mockk.every
 import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
-import org.junit.jupiter.api.Test
-
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.springframework.boot.actuate.health.Status
 import reactor.core.publisher.Mono
-import java.lang.IllegalArgumentException
-import java.lang.RuntimeException
 
 internal class ModbusDeviceImplTest {
 
-    val deviceId: Byte = 9
-    val deviceName = "fooDevice"
-    var serialPort: SerialPortDriver? = null
+    private val deviceId: Byte = 9
+    private val deviceName = "fooDevice"
+    private var serialPort: SerialPortDriver? = null
+    private var function: ModbusFunction? = null
+    private var meterRegistry: MeterRegistry? = null
+    private var checkStateFunction: ModbusFunctionBase<CheckStateFunctionArgs, Byte>? = null
     var victim: ModbusDeviceImpl? = null
-    var function: ModbusFunction? = null
     var functions: Map<String, ModbusFunction>? = null
-    var meterRegistry: MeterRegistry? = null
-    var checkStateFunction: ModbusFunctionBase<CheckStateFunctionArgs, Byte>? = null
 
     @BeforeEach
     fun setup() {
-        serialPort = mockk<SerialPortDriver>()
+        serialPort = mockk()
         every { serialPort!!.name } returns "com1"
         meterRegistry = SimpleMeterRegistry()
 
-        checkStateFunction = mockk<ModbusFunctionBase<CheckStateFunctionArgs, Byte>>()
+        checkStateFunction = mockk()
 
         function = mockk<ReadTotalPowerFunction>()
 
@@ -96,10 +92,10 @@ internal class ModbusDeviceImplTest {
         assertThat(victim!!.commandsProcessed).isEqualTo(1)
 
         assertThat(result!!.deviceName).isEqualTo(deviceName)
-        assertThat(result!!.function).isEqualTo(DeviceFunction.TOTAL_POWER)
-        assertThat(result!!.data).isEqualTo(123.45f.toString())
-        assertThat(result!!.dataType).isEqualTo("java.lang.Float")
-        assertThat(result!!.unit).isEqualTo(DeviceFunction.TOTAL_POWER.unit)
+        assertThat(result.function).isEqualTo(DeviceFunction.TOTAL_POWER)
+        assertThat(result.data).isEqualTo(123.45f.toString())
+        assertThat(result.dataType).isEqualTo("java.lang.Float")
+        assertThat(result.unit).isEqualTo(DeviceFunction.TOTAL_POWER.unit)
     }
 
     @Test

@@ -2,9 +2,11 @@ package com.gcs.gRPCModbusAdapter.devices
 
 import com.gcs.gRPCModbusAdapter.functions.ModbusFunction
 import com.gcs.gRPCModbusAdapter.functions.ReadCurrentPowerFunction
+import com.gcs.gRPCModbusAdapter.functions.ReadCurrentVoltageFunction
 import com.gcs.gRPCModbusAdapter.functions.ReadTotalPowerFunction
 import com.gcs.gRPCModbusAdapter.functions.args.FunctionArgs
 import com.gcs.gRPCModbusAdapter.functions.args.ReadCurrentPowerFunctionArgs
+import com.gcs.gRPCModbusAdapter.functions.args.ReadCurrentVoltageFunctionArgs
 import com.gcs.gRPCModbusAdapter.functions.args.ReadTotalPowerFunctionArgs
 import io.mockk.Matcher
 import io.mockk.every
@@ -86,6 +88,51 @@ internal class DeviceFunctionsTest {
         assertThat(response.dataType).isEqualTo("java.lang.Float")
         assertThat(response.unit).isEqualTo("W")
         assertThat(response.data).isEqualTo("123.45")
+    }
+
+    @Test
+    fun queryCurrentVoltagePhase1FunctionIsConfiguredProperly() {
+        function = mockk<ReadCurrentVoltageFunction>()
+        every { modbusDevice!!.functionServices } returns mapOf(ReadCurrentVoltageFunction.FunctionName to function!! )
+        every { (function!! as ReadCurrentVoltageFunction).execute(match(argsMatcher(ReadCurrentVoltageFunctionArgs::class.java))) } returns Mono.just(230.1f)
+
+        val response = NativeFunctionQuery[DeviceFunction.CURRENT_VOLTAGE_PHASE1]!!.invoke(modbusDevice!!).block()!!
+
+        assertThat(response.function).isEqualTo(DeviceFunction.CURRENT_VOLTAGE_PHASE1)
+        assertThat(response.deviceName).isEqualTo("mockDevice")
+        assertThat(response.dataType).isEqualTo("java.lang.Float")
+        assertThat(response.unit).isEqualTo("V")
+        assertThat(response.data).isEqualTo("230.1")
+    }
+
+    @Test
+    fun queryCurrentVoltagePhase2FunctionIsConfiguredProperly() {
+        function = mockk<ReadCurrentVoltageFunction>()
+        every { modbusDevice!!.functionServices } returns mapOf(ReadCurrentVoltageFunction.FunctionName to function!! )
+        every { (function!! as ReadCurrentVoltageFunction).execute(match(argsMatcher(ReadCurrentVoltageFunctionArgs::class.java))) } returns Mono.just(230.2f)
+
+        val response = NativeFunctionQuery[DeviceFunction.CURRENT_VOLTAGE_PHASE2]!!.invoke(modbusDevice!!).block()!!
+
+        assertThat(response.function).isEqualTo(DeviceFunction.CURRENT_VOLTAGE_PHASE2)
+        assertThat(response.deviceName).isEqualTo("mockDevice")
+        assertThat(response.dataType).isEqualTo("java.lang.Float")
+        assertThat(response.unit).isEqualTo("V")
+        assertThat(response.data).isEqualTo("230.2")
+    }
+
+    @Test
+    fun queryCurrentVoltagePhase3FunctionIsConfiguredProperly() {
+        function = mockk<ReadCurrentVoltageFunction>()
+        every { modbusDevice!!.functionServices } returns mapOf(ReadCurrentVoltageFunction.FunctionName to function!! )
+        every { (function!! as ReadCurrentVoltageFunction).execute(match(argsMatcher(ReadCurrentVoltageFunctionArgs::class.java))) } returns Mono.just(230.3f)
+
+        val response = NativeFunctionQuery[DeviceFunction.CURRENT_VOLTAGE_PHASE3]!!.invoke(modbusDevice!!).block()!!
+
+        assertThat(response.function).isEqualTo(DeviceFunction.CURRENT_VOLTAGE_PHASE3)
+        assertThat(response.deviceName).isEqualTo("mockDevice")
+        assertThat(response.dataType).isEqualTo("java.lang.Float")
+        assertThat(response.unit).isEqualTo("V")
+        assertThat(response.data).isEqualTo("230.3")
     }
 
     fun <T: FunctionArgs>argsMatcher(expectedType: Class<T>): Matcher<T> {

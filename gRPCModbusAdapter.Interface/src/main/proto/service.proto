@@ -28,6 +28,9 @@ enum DeviceFunction {
   EXPORT_POWER = 2;
   IMPORT_POWER = 3;
   CURRENT_POWER = 4;
+  CURRENT_VOLTAGE_PHASE1 = 5;
+  CURRENT_VOLTAGE_PHASE2 = 6;
+  CURRENT_VOLTAGE_PHASE3 = 7;
 };
 
 message Request {
