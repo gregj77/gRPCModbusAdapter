@@ -35,7 +35,7 @@ class ModbusDeviceImpl(
         if (!port.isRunning) {
             return Mono.just(Health.down().withDetail("infrastructure", "underlying communication port ${port.name} is not running").build())
         }
-        val checkStateFunc = functionServices[DeviceFunction.DEVICE_ID.functionServiceName] as ModbusFunctionBase<CheckStateFunctionArgs, Byte>
+        val checkStateFunc =  @Suppress("UNCHECKED_CAST")(functionServices[DeviceFunction.DEVICE_ID.functionServiceName] as ModbusFunctionBase<CheckStateFunctionArgs, Byte>)
         return checkStateFunc
             .execute(CheckStateFunctionArgs(port, deviceId))
             .map { if (it != deviceId) throw IllegalStateException("Invalid device id") else it }

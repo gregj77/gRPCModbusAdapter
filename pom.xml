@@ -24,8 +24,8 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>11</java.version>
-        <kotlin.version>1.5.21</kotlin.version>
-        <spring.version>2.5.4</spring.version>
+        <kotlin.version>1.6.10</kotlin.version>
+        <spring.version>2.6.6</spring.version>
         <kotlin.logging.version>2.0.11</kotlin.logging.version>
         <nrjavaserial.version>5.2.1</nrjavaserial.version>
         <rxkotlin.version>3.0.1</rxkotlin.version>
@@ -109,7 +109,7 @@
                 <plugin>
                     <groupId>org.springframework.boot</groupId>
                     <artifactId>spring-boot-maven-plugin</artifactId>
-                    <version>2.5.4</version>
+                    <version>2.6.6</version>
                 </plugin>
 
                 <plugin>
@@ -136,12 +136,12 @@
                 <plugin>
                     <groupId>org.jetbrains.kotlin</groupId>
                     <artifactId>kotlin-maven-plugin</artifactId>
-                    <version>1.5.21</version>
+                    <version>1.6.10</version>
                     <dependencies>
                         <dependency>
                             <groupId>org.jetbrains.kotlin</groupId>
                             <artifactId>kotlin-maven-allopen</artifactId>
-                            <version>1.5.21</version>
+                            <version>1.6.10</version>
                         </dependency>
                     </dependencies>
                 </plugin>
