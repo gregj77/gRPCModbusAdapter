@@ -6,7 +6,7 @@ import com.gcs.gRPCModbusAdapter.functions.utils.toShort
 import org.springframework.stereotype.Service
 
 @Service
-class ReadCurrentVoltageFunction(crcService: MessageCRCServiceImpl) : ModbusFunctionBase<ReadCurrentVoltageFunctionArgs, Float>(crcService, 7) {
+class ReadCurrentVoltageFunction(crcService: MessageCRCServiceImpl) : ModbusFunctionBase<ReadCurrentVoltageFunctionArgs, Float>(crcService, 9) {
     override val functionName: String
         get() = FunctionName
 

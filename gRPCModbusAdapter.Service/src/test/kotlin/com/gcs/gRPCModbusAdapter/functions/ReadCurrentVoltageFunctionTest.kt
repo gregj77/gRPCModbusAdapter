@@ -34,7 +34,7 @@ internal class ReadCurrentVoltageFunctionTest {
         val crcService = mockk<MessageCRCServiceImpl>(relaxed = true)
         every { crcService.checkCrc(any()) } returns true
         every { driverMock.communicateAsync(any()) } returns Flux.just(
-            0x1, 0x3, 0x4, 0x09, 0x1b, 0xff.toByte(), 0xff.toByte())
+            0x1, 0x3, 0x4, 0x09, 0x1b, 0x00, 0x00, 0xff.toByte(), 0xff.toByte())
         val victim = ReadCurrentVoltageFunction(crcService)
 
         val result = victim.execute(ReadCurrentVoltageFunctionArgs(driverMock, 1, registerId)).block()
@@ -53,7 +53,7 @@ internal class ReadCurrentVoltageFunctionTest {
         val crcService = mockk<MessageCRCServiceImpl>(relaxed = true)
         every { crcService.checkCrc(any()) } returns false
         every { driverMock.communicateAsync(any()) } returns Flux.just(
-            0x1, 0x3, 0x4, 0x09, 0x1b, 0xff.toByte(), 0xff.toByte())
+            0x1, 0x3, 0x4, 0x09, 0x1b, 0x00, 0x00, 0xff.toByte(), 0xff.toByte())
         val victim = ReadCurrentVoltageFunction(crcService)
 
         assertThrows(CrcCheckError::class.java) {
