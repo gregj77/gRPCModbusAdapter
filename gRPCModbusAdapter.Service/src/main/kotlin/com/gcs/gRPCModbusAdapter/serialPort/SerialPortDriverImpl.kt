@@ -66,7 +66,7 @@ class SerialPortDriverImpl(
                 val onDataReceivedCallbackHandler = SerialPortEventListener {
                     when (it.eventType) {
                         SerialPortEvent.HARDWARE_ERROR -> { lastError = "hardware error"; observer.error(RetryableException("HardwareError")) }
-                        SerialPortEvent.DATA_AVAILABLE -> commandHandler.notifyNewDataAvailable()
+                        SerialPortEvent.DATA_AVAILABLE -> commandHandler.notifyNewDataAvailable(it.newValue, it.oldValue)
                         else -> logger.info { "$name -> not supported event type ${it.eventType} received. ignoring..." }
                     }
                 }

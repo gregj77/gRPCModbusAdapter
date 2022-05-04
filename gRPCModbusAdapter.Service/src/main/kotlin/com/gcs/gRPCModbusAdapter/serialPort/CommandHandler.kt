@@ -8,7 +8,6 @@ import java.io.OutputStream
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
-import kotlin.math.log
 import kotlin.system.measureTimeMillis
 
 open class CommandHandlerFactory(private val cfg: SerialPortConfig, private val writeCounter: Counter, private val readCounter: Counter) {
@@ -35,9 +34,11 @@ open class CommandHandler(
         logger.info { "setup $name complete - sleepBetweenBytes: $sleepBetweenBytes, wait for response: ${cfg.responseWaitTimeMillis} " }
     }
 
-    fun notifyNewDataAvailable() {
-        logger.debug { "$name - new data available" }
-        dataReady.set(true)
+    fun notifyNewDataAvailable(newValue: Boolean, oldValue: Boolean) {
+        if (newValue != oldValue) {
+            logger.debug { "$name - data available event new: $newValue, old: $oldValue" }
+        }
+        dataReady.set(newValue)
     }
 
     fun onHandleCommand(id: Int, data: ByteArray, resultHandler: CompletableFuture<List<Byte>>) {
@@ -51,12 +52,15 @@ open class CommandHandler(
 
             if (dataReady.get()) {
                 var readData = 0
-                var loops = 5
-                val readDuration = measureTimeMillis { while (--loops >= 0) {
+                var loops = 10
+                val readDuration = measureTimeMillis {
+                    while (--loops >= 0) {
                         if (input.available() > 0) {
                             val chunkSize = input.read(receiveBuffer, readData, receiveBuffer.size - readData)
+                            logger.debug { "$name - command $id - got chunk $chunkSize" }
                             readData += chunkSize
                             readCounter.increment(chunkSize.toDouble())
+                            loops = 10
                         }
                         tick()
                     }
