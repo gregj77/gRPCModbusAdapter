@@ -121,7 +121,7 @@ class SerialPortDriverImpl(
         requests: Flux<Triple<Int, ByteArray, CompletableFuture<List<Byte>>>>): Disposable {
 
         return requests
-            .publishOn(Schedulers.parallel())
+            .publishOn(scheduler)
             .subscribe {
                 val (id, data, resultHandler) = it
                 handler.onHandleCommand(id, data, resultHandler)

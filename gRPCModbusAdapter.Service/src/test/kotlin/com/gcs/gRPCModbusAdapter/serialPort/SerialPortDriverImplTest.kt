@@ -23,8 +23,6 @@ import reactor.core.scheduler.Schedulers
 import reactor.test.scheduler.VirtualTimeScheduler
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
-import java.io.InputStream
-import java.io.OutputStream
 import java.time.Duration
 
 internal class SerialPortDriverImplTest {
@@ -44,11 +42,7 @@ internal class SerialPortDriverImplTest {
         val registry = SimpleMeterRegistry()
         writeCounter = registry.counter("bytesWritten")
         readCounter = registry.counter("bytesRead")
-        commandHandlerFactory = object : CommandHandlerFactory(cfg, writeCounter!!, readCounter!!) {
-            override fun createCommandHandler(input: InputStream, output: OutputStream): CommandHandler {
-                return TestCommandHandler(input, output, cfg, writeCounter!!, readCounter!!)
-            }
-        }
+        commandHandlerFactory = CommandHandlerFactory(cfg, writeCounter!!, readCounter!!)
     }
 
     @AfterEach
@@ -119,7 +113,7 @@ internal class SerialPortDriverImplTest {
 
     }
 
-//    @Test
+    @Test
     fun `data send commands are enqueued and return in the right order`() {
         val commPort = mockk<RXTXPort>(relaxed = true)
 
@@ -127,7 +121,11 @@ internal class SerialPortDriverImplTest {
 
         val outStream = ByteArrayOutputStream()
         val buffer = ByteArray(3)
-        val inStream = ByteArrayInputStream(buffer)
+        val inStream = object  : ByteArrayInputStream(buffer) {
+            override fun available(): Int {
+                return super.available()
+            }
+        }
 
         serialPortFactory = {
             commPort
@@ -149,33 +147,24 @@ internal class SerialPortDriverImplTest {
         for (i in 0..2) buffer[i] = i.toByte()
         victim.communicateAsync(buffer).take(3).subscribe(result::add)
 
-        Thread.sleep(500L)
-
-        dataReadyCallback!!.serialEvent(SerialPortEvent(commPort, SerialPortEvent.DATA_AVAILABLE, false, false))
-
-        Thread.sleep(500L)
-
+        Thread.sleep(1_000L)
         inStream.reset()
+
+        dataReadyCallback!!.serialEvent(SerialPortEvent(commPort, SerialPortEvent.DATA_AVAILABLE, false, true))
+        Thread.sleep(500L)
+
         for (i in 0..2) buffer[i] = i.plus(10).toByte()
         victim.communicateAsync(buffer).take(3).subscribe(result::add)
-        Thread.sleep(500L)
-        dataReadyCallback!!.serialEvent(SerialPortEvent(commPort, SerialPortEvent.DATA_AVAILABLE, false, false))
+        Thread.sleep(1_000L)
+
+        inStream.reset()
+        dataReadyCallback!!.serialEvent(SerialPortEvent(commPort, SerialPortEvent.DATA_AVAILABLE, false, true))
         Thread.sleep(500L)
 
         assertThat(result.size).isEqualTo(6)
         assertThat(result).containsExactly(0, 1, 2, 10, 11, 12)
 
-
         victim.dispose()
         assertThat(victim.isRunning).isFalse
-    }
-
-    class TestCommandHandler(input: InputStream, output: OutputStream, cfg: SerialPortConfig, writeCounter: Counter, readCounter: Counter)
-        : CommandHandler(input, output, cfg, writeCounter, readCounter) {
-
-        override fun drainBuffer() {
-            dataReady.set(false)
-        }
-
     }
 }

@@ -25,7 +25,7 @@ open class CommandHandler(
     private val readCounter: Counter) {
 
     private val logger = KotlinLogging.logger {  }
-    protected val dataReady = AtomicBoolean(false)
+    private val dataReady = AtomicBoolean(false)
     private val receiveBuffer = ByteArray(128)
     private val sleepBetweenBytes = ((((cfg.dataBits + cfg.stopBits.value + 2) / cfg.baudRate.toDouble()) * 1_000.0) + 1.0).toLong()
     private val name = cfg.name
@@ -79,14 +79,14 @@ open class CommandHandler(
         }
     }
 
-    protected open fun drainBuffer() {
+    private fun drainBuffer() {
         while (input.available() > 0) {
             input.read(receiveBuffer)
         }
         dataReady.set(false)
     }
 
-    protected open fun awaitCommandResponse(): Long {
+    private fun awaitCommandResponse(): Long {
         var waitTime = 0L
         var remainingWaitTime = cfg.responseWaitTimeMillis.toLong()
         while (remainingWaitTime >= 0 && !dataReady.get()) {
@@ -99,7 +99,7 @@ open class CommandHandler(
         return waitTime
     }
 
-    protected open fun tick() {
+    private fun tick() {
         Thread.sleep(sleepBetweenBytes)
     }
 }
