@@ -87,7 +87,7 @@ class CommandHandlerTest {
         every { outputStream.write(any<ByteArray>()) } answers {
             CompletableFuture.runAsync{
                 Thread.sleep(200L)
-                victim.notifyNewDataAvailable()
+                victim.notifyNewDataAvailable(newValue = true, oldValue = false)
             }
         }
 
@@ -122,7 +122,7 @@ class CommandHandlerTest {
         every { outputStream.write(any<ByteArray>()) } answers {
             CompletableFuture.runAsync{
                 Thread.sleep(200L)
-                victim.notifyNewDataAvailable()
+                victim.notifyNewDataAvailable(newValue = true, oldValue = false)
             }
         }
 
