@@ -8,6 +8,7 @@ import java.io.OutputStream
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.log
 import kotlin.system.measureTimeMillis
 
 open class CommandHandlerFactory(private val cfg: SerialPortConfig, private val writeCounter: Counter, private val readCounter: Counter) {
@@ -30,7 +31,12 @@ open class CommandHandler(
     private val sleepBetweenBytes = ((((cfg.dataBits + cfg.stopBits.value + 2) / cfg.baudRate.toDouble()) * 1_000.0) + 1.0).toLong()
     private val name = cfg.name
 
+    init {
+        logger.info { "setup $name complete - sleepBetweenBytes: $sleepBetweenBytes, wait for response: ${cfg.responseWaitTimeMillis} " }
+    }
+
     fun notifyNewDataAvailable() {
+        logger.debug { "$name - new data available" }
         dataReady.set(true)
     }
 
@@ -41,20 +47,21 @@ open class CommandHandler(
             drainBuffer()
             output.write(data)
             writeCounter.increment(data.size.toDouble())
-            awaitCommandResponse()
+            val commandWaitTime = awaitCommandResponse()
 
             if (dataReady.get()) {
                 var readData = 0
                 var loops = 5
-                while (--loops >= 0) {
-                    if (input.available() > 0) {
-                        val chunkSize = input.read(receiveBuffer, readData, receiveBuffer.size - readData)
-                        readData += chunkSize
-                        readCounter.increment(chunkSize.toDouble())
+                val readDuration = measureTimeMillis { while (--loops >= 0) {
+                        if (input.available() > 0) {
+                            val chunkSize = input.read(receiveBuffer, readData, receiveBuffer.size - readData)
+                            readData += chunkSize
+                            readCounter.increment(chunkSize.toDouble())
+                        }
+                        tick()
                     }
-                    tick()
                 }
-                logger.debug { "$name - command $id - request/reply completed with $readData bytes" }
+                logger.debug { "$name - command $id - request/reply completed with $readData bytes after wait: $commandWaitTime ms, read: $readDuration ms" }
                 dataReady.set(false)
                 resultHandler.complete(receiveBuffer.take(readData).toList())
             } else {
@@ -72,15 +79,20 @@ open class CommandHandler(
         while (input.available() > 0) {
             input.read(receiveBuffer)
         }
+        dataReady.set(false)
     }
 
-    protected open fun awaitCommandResponse() {
+    protected open fun awaitCommandResponse(): Long {
+        var waitTime = 0L
         var remainingWaitTime = cfg.responseWaitTimeMillis.toLong()
         while (remainingWaitTime >= 0 && !dataReady.get()) {
-            remainingWaitTime -= measureTimeMillis {
+            val tickDuration = measureTimeMillis {
                 Thread.sleep(sleepBetweenBytes)
             }
+            remainingWaitTime -= tickDuration
+            waitTime += tickDuration
         }
+        return waitTime
     }
 
     protected open fun tick() {
