@@ -1,3 +1,6 @@
 grpcurl --plaintext -d "{ \"request\": [{\"deviceName\": \"ProductionMeter\", \"readRequests\": [{\"functionName\": \"IMPORT_POWER\", \"readIntervalInSeconds\": 15}]}, {\"deviceName\": \"MainMeter\", \"readRequests\": [{\"functionName\": \"IMPORT_POWER\", \"readIntervalInSeconds\": 15}, {\"functionName\": \"EXPORT_POWER\", \"readIntervalInSeconds\": 15}, {\"functionName\": \"CURRENT_POWER\", \"readIntervalInSeconds\": 5}]}]}" 192.168.0.7:9090  com.gcs.gRPCModbusAdapter.service.ModbusDeviceService.subscribeForDeviceData
 
-grpcurl --plaintext -d "{ \"request\": [{\"deviceName\": \"ProductionMeter\", \"readRequests\": [{\"functionName\": \"CURRENT_VOLTAGE_PHASE1\", \"readIntervalInSeconds\": 30}]}]}" 192.168.0.7:9090  com.gcs.gRPCModbusAdapter.service.ModbusDeviceService.subscribeForDeviceData
+grpcurl --plaintext -d "{ \"request\": [{\"deviceName\": \"ProductionMeter\", \"readRequests\": [{\"functionName\": \"CURRENT_VOLTAGE_PHASE1\", \"readIntervalInSeconds\": 30},{\"functionName\": \"CURRENT_VOLTAGE_PHASE2\", \"readIntervalInSeconds\": 30},{\"functionName\": \"CURRENT_VOLTAGE_PHASE3\", \"readIntervalInSeconds\": 30}]}]}" 192.168.0.7:9090  com.gcs.gRPCModbusAdapter.service.ModbusDeviceService.subscribeForDeviceData
+
+
+grpcurl --plaintext -d "{ \"request\": [{\"deviceName\": \"MainMeter\", \"readRequests\": [{\"functionName\": \"IMPORT_POWER\", \"readIntervalInSeconds\": 30},{\"functionName\": \"EXPORT_POWER\", \"readIntervalInSeconds\": 30}]}]}" 192.168.0.7:9090  com.gcs.gRPCModbusAdapter.service.ModbusDeviceService.subscribeForDeviceData

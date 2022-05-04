@@ -55,7 +55,7 @@ class ModbusServiceAdapter(private val devices: Map<String, ModbusDevice>, priva
         })
             .doOnSubscribe { logger.info { "subscription $deviceName.$functionName activated every $interval s with delay $currentDelay ms" }  }
             .onErrorContinue { err, _ -> logger.warn { "got error $deviceName.$functionName - ${err.message} <${err.javaClass.name}>" } }
-            .doOnNext { logger.debug { "next item from $functionName.$function = $it" } }
+            .doOnNext { logger.debug { "next item from $deviceName.$function = $it" } }
 
         logger.info { "request $deviceName.$functionName validated - will start producing data every $interval seconds" }
 
