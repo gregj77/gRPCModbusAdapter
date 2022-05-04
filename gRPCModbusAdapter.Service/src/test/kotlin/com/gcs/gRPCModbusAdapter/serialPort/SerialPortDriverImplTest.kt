@@ -27,11 +27,13 @@ import java.time.Duration
 
 internal class SerialPortDriverImplTest {
 
+    val cfg = SerialPortConfig("FOO", 9600, 8, Parity.NONE, StopBits.STOPBITS_1, 2_000)
     var serialPortFactory: ((String) -> RXTXPort)? = null
     var serialPortMock: RXTXPort? = null
     var scheduler: VirtualTimeScheduler? = null
     var writeCounter: Counter? = null
     var readCounter: Counter? = null
+    var commandHandlerFactory: CommandHandlerFactory? = null
 
     @BeforeEach
     fun setUp() {
@@ -40,6 +42,7 @@ internal class SerialPortDriverImplTest {
         val registry = SimpleMeterRegistry()
         writeCounter = registry.counter("bytesWritten")
         readCounter = registry.counter("bytesRead")
+        commandHandlerFactory = CommandHandlerFactory(cfg, writeCounter!!, readCounter!!)
     }
 
     @AfterEach
@@ -49,11 +52,9 @@ internal class SerialPortDriverImplTest {
 
     @Test
     fun `trying to create a non existing port results in an error when trying to submit data`() {
-        val cfg = SerialPortConfig("FOO", 9600, 8, Parity.NONE, StopBits.STOPBITS_1)
-
         serialPortFactory = { throw IllegalArgumentException("no such port $it")}
 
-        val victim = SerialPortDriverImpl(cfg, Schedulers.single(), serialPortFactory!!, {}, writeCounter!!, readCounter!!)
+        val victim = SerialPortDriverImpl(cfg, Schedulers.single(), serialPortFactory!!, {}, commandHandlerFactory!!)
 
         assertThat(victim.isRunning).isFalse
 
@@ -64,7 +65,6 @@ internal class SerialPortDriverImplTest {
 
     @Test
     fun `trying to open used port will cause retry attempts every 5 seconds`() {
-        val cfg = SerialPortConfig("FOO", 9600, 8, Parity.NONE, StopBits.STOPBITS_1)
         var count: Int = 0
 
         serialPortFactory = {
@@ -72,7 +72,7 @@ internal class SerialPortDriverImplTest {
             throw PortInUseException()
         }
 
-        val victim = SerialPortDriverImpl(cfg, scheduler!!, serialPortFactory!!, {}, writeCounter!!, readCounter!!)
+        val victim = SerialPortDriverImpl(cfg, scheduler!!, serialPortFactory!!, {}, commandHandlerFactory!!)
 
         scheduler!!.advanceTimeBy(Duration.ofSeconds(59L))
 
@@ -85,8 +85,6 @@ internal class SerialPortDriverImplTest {
 
     @Test
     fun `serial port with valid parameters is properly configured`() {
-        val cfg = SerialPortConfig("FOO", 9600, 8, Parity.NONE, StopBits.STOPBITS_1)
-
         val commPort = mockk<RXTXPort>(relaxed = true)
 
         every { commPort.setSerialPortParams(9600, 8, StopBits.STOPBITS_1.value, Parity.NONE.value) } returns Unit
@@ -95,7 +93,7 @@ internal class SerialPortDriverImplTest {
             commPort
         }
 
-        val victim = SerialPortDriverImpl(cfg, scheduler!!, serialPortFactory!!, {}, writeCounter!!, readCounter!!)
+        val victim = SerialPortDriverImpl(cfg, scheduler!!, serialPortFactory!!, {}, commandHandlerFactory!!)
 
         verify { commPort.setSerialPortParams(9600, 8, StopBits.STOPBITS_1.value, Parity.NONE.value) }
         verify { commPort.inputStream }
@@ -117,15 +115,17 @@ internal class SerialPortDriverImplTest {
 
     @Test
     fun `data send commands are enqueued and return in the right order`() {
-        val cfg = SerialPortConfig("FOO", 9600, 8, Parity.NONE, StopBits.STOPBITS_1)
-
         val commPort = mockk<RXTXPort>(relaxed = true)
 
         every { commPort.setSerialPortParams(9600, 8, StopBits.STOPBITS_1.value, Parity.NONE.value) } returns Unit
 
         val outStream = ByteArrayOutputStream()
         val buffer = ByteArray(3)
-        val inStream = ByteArrayInputStream(buffer)
+        val inStream = object  : ByteArrayInputStream(buffer) {
+            override fun available(): Int {
+                return super.available()
+            }
+        }
 
         serialPortFactory = {
             commPort
@@ -139,27 +139,30 @@ internal class SerialPortDriverImplTest {
             dataReadyCallback = it.invocation.args[0] as SerialPortEventListener
         }
 
-        val victim = SerialPortDriverImpl(cfg, scheduler!!, serialPortFactory!!, {}, writeCounter!!, readCounter!!)
+        val victim = SerialPortDriverImpl(cfg, Schedulers.parallel(), serialPortFactory!!, {}, commandHandlerFactory!!)
 
         assertThat(victim.isRunning).isTrue
 
         val result = mutableListOf<Byte>()
         for (i in 0..2) buffer[i] = i.toByte()
         victim.communicateAsync(buffer).take(3).subscribe(result::add)
-        scheduler!!.advanceTimeBy(Duration.ofMinutes(1L))
-        dataReadyCallback!!.serialEvent(SerialPortEvent(commPort, SerialPortEvent.DATA_AVAILABLE, false, false))
-        scheduler!!.advanceTimeBy(Duration.ofMinutes(1L))
 
+        Thread.sleep(1_000L)
         inStream.reset()
+
+        dataReadyCallback!!.serialEvent(SerialPortEvent(commPort, SerialPortEvent.DATA_AVAILABLE, false, true))
+        Thread.sleep(500L)
+
         for (i in 0..2) buffer[i] = i.plus(10).toByte()
         victim.communicateAsync(buffer).take(3).subscribe(result::add)
-        scheduler!!.advanceTimeBy(Duration.ofMinutes(1L))
-        dataReadyCallback!!.serialEvent(SerialPortEvent(commPort, SerialPortEvent.DATA_AVAILABLE, false, false))
-        scheduler!!.advanceTimeBy(Duration.ofMinutes(1L))
+        Thread.sleep(1_000L)
+
+        inStream.reset()
+        dataReadyCallback!!.serialEvent(SerialPortEvent(commPort, SerialPortEvent.DATA_AVAILABLE, false, true))
+        Thread.sleep(500L)
 
         assertThat(result.size).isEqualTo(6)
         assertThat(result).containsExactly(0, 1, 2, 10, 11, 12)
-
 
         victim.dispose()
         assertThat(victim.isRunning).isFalse

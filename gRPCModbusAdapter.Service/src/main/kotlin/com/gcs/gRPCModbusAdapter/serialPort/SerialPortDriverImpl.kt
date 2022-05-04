@@ -5,27 +5,22 @@ import gnu.io.PortInUseException
 import gnu.io.RXTXPort
 import gnu.io.SerialPortEvent
 import gnu.io.SerialPortEventListener
-import io.micrometer.core.instrument.Counter
 import mu.KotlinLogging
 import org.springframework.boot.actuate.health.Health
 import org.springframework.boot.actuate.health.HealthIndicator
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
-import reactor.core.publisher.FluxSink
+import reactor.core.publisher.Sinks
 import reactor.core.scheduler.Scheduler
 import reactor.util.retry.Retry
-import java.io.InputStream
 import java.time.Duration
-import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.atomic.AtomicReference
 
 interface SerialPortDriver : Disposable {
     val name: String
-    val totalBytesRead: ULong
-    val totalBytesWritten: ULong
     val isRunning: Boolean
     fun communicateAsync(data: ByteArray) : Flux<Byte>
 }
@@ -35,28 +30,21 @@ class SerialPortDriverImpl(
     private val scheduler: Scheduler,
     private val serialPortFactory: (String) -> RXTXPort,
     private val hardwareErrorPortCleaner: (String) -> Unit,
-    private val writeCounter: Counter,
-    private val readCounter: Counter
+    commandHandlerFactory: CommandHandlerFactory
 ) : SerialPortDriver, HealthIndicator {
     private val logger = KotlinLogging.logger {}
 
     override val name: String
         get() = cfg.name
-    override val totalBytesRead: ULong
-        get() = readCounter.count().toULong()
-    override val totalBytesWritten: ULong
-        get() = writeCounter.count().toULong()
     override val isRunning: Boolean
         get() = running.get()
 
     private val id = AtomicInteger(0)
     private val running = AtomicBoolean(false)
-    private val commandsInProgress = AtomicInteger(0)
-    private val commands = ConcurrentLinkedQueue<CommandRequest>()
 
     private val subscription: Disposable
+    private val commandsStream = Sinks.many().unicast().onBackpressureBuffer<Triple<Int, ByteArray, CompletableFuture<List<Byte>>>>()
     private var lastError: String? = null
-    private var commandHandler: ((ByteArray, FluxSink<Byte>) -> Disposable)? = null
 
     init {
 
@@ -69,24 +57,17 @@ class SerialPortDriverImpl(
 
                 val inputByteStream = serialPort.inputStream
                 val outputByteStream = serialPort.outputStream
-                val activeDataEmitterRef: AtomicReference<FluxSink<Byte>?> = AtomicReference(null)
 
                 logger.debug { "registering data listener..." }
 
-                val receiveBuffer = ByteArray(32)
+                val commandHandler = commandHandlerFactory.createCommandHandler(inputByteStream, outputByteStream)
+
                 val onDataReceivedCallbackHandler = SerialPortEventListener {
                     when (it.eventType) {
                         SerialPortEvent.HARDWARE_ERROR -> { lastError = "hardware error"; observer.error(RetryableException("HardwareError")) }
-                        SerialPortEvent.DATA_AVAILABLE -> onDataReceived(inputByteStream, activeDataEmitterRef, receiveBuffer)
+                        SerialPortEvent.DATA_AVAILABLE -> commandHandler.notifyNewDataAvailable(it.newValue, it.oldValue)
                         else -> logger.info { "$name -> not supported event type ${it.eventType} received. ignoring..." }
                     }
-                }
-
-                commandHandler = { sendBuffer, responseHandler  ->
-                    activeDataEmitterRef.set(responseHandler)
-                    outputByteStream.write(sendBuffer)
-                    writeCounter.increment(sendBuffer.size.toDouble())
-                    Disposable { activeDataEmitterRef.set(null) }
                 }
 
                 with(serialPort) {
@@ -94,12 +75,12 @@ class SerialPortDriverImpl(
                     notifyOnDataAvailable(true)
                 }
 
+                val commandHandlerToken = initializeRequestStream(commandHandler, commandsStream.asFlux())
+
                 observer.onCancel {
                     if (running.get()) {
                         logger.debug { "closing serial port due to cancel event" }
-                        running.set(false)
-                        serialPort.removeEventListener()
-                        serialPort.close()
+                        onCleanup(commandHandlerToken, serialPort)
                         hardwareErrorPortCleaner.invoke(name)
                     }
                 }
@@ -107,11 +88,8 @@ class SerialPortDriverImpl(
                 observer.onDispose {
                     if (running.get()) {
                         logger.debug { "closing serial port due to unsubscribe event" }
-                        running.set(false)
-                        serialPort.removeEventListener()
-                        serialPort.close()
+                        onCleanup(commandHandlerToken, serialPort)
                     }
-                    commandHandler = null
                 }
 
                 logger.debug { "all is initialized" }
@@ -137,49 +115,47 @@ class SerialPortDriverImpl(
                 })
     }
 
+    private fun initializeRequestStream(
+        handler: CommandHandler,
+        requests: Flux<Triple<Int, ByteArray, CompletableFuture<List<Byte>>>>): Disposable {
 
-    override fun communicateAsync(data: ByteArray): Flux<Byte> {
-        return Flux
-            .create<Byte?> { consumer ->
-                val cmdId = id.incrementAndGet()
-                logger.debug { "received new command $cmdId" }
-                val cmd = CommandRequest(cmdId, data, consumer)
-                commands.offer(cmd)
-
-                consumer.onDispose {
-                    cmd.dispose()
-                    scheduler.schedule({
-                        val leftCommands = commandsInProgress.decrementAndGet()
-                        logger.debug { "command $cmdId completed; commands left: $leftCommands" }
-                        if (leftCommands != 0) {
-                            processCommandQueue()
-                        }
-                    }, 31, TimeUnit.MILLISECONDS)
-                }
-
-                if (commandsInProgress.incrementAndGet() == 1) {
-                    scheduler.schedule(this::processCommandQueue)
-                }
-            }
-            .subscribeOn(scheduler)
+        return requests
             .publishOn(scheduler)
+            .subscribe {
+                val (id, data, resultHandler) = it
+                handler.onHandleCommand(id, data, resultHandler)
+            }
     }
 
-    private fun processCommandQueue() {
-        val command = commands.poll()
-        if (null != command) {
-            when (commandHandler) {
-                null -> {
-                    logger.warn { "$name - trying to execute command on not initialized port" }
-                    command.responseConsumer.error(IllegalStateException("$name port is not initialized"))
-                }
-                else -> {
-                    try {
-                        logger.debug { "$name - about to execute command ${command.id}" }
-                        command.cleanup = commandHandler!!.invoke(command.request, command.responseConsumer)
-                    } catch (err: Exception) {
-                        logger.warn { "$name - command ${command.id} failed to execute with ${err.message} <${err.javaClass.name}>" }
-                        command.responseConsumer.error(err)
+    private fun onCleanup(commandHandlerToken: Disposable, serialPort: RXTXPort) {
+        commandHandlerToken.dispose()
+        running.set(false)
+        with (serialPort) {
+            removeEventListener()
+            close()
+        }
+    }
+
+    override fun communicateAsync(data: ByteArray): Flux<Byte> {
+        val cmdId = id.incrementAndGet()
+
+        if (isRunning.not()) {
+            return Flux.error(IllegalStateException("$name - failed to schedule command $cmdId - port not initialized!"))
+        }
+
+        val result = CompletableFuture<List<Byte>>()
+        val cmd = Triple(cmdId, data, result)
+        val emitResult = commandsStream.tryEmitNext(cmd)
+        return if (emitResult != Sinks.EmitResult.OK) {
+            Flux.error(Exception("$name - failed to schedule command ${cmd.first} -> ${emitResult.name}"))
+        } else {
+            Flux.create {
+                result.handle { result, error ->
+                    if (error != null) {
+                        it.error(error)
+                    } else {
+                        result.forEach(it::next)
+                        it.complete()
                     }
                 }
             }
@@ -202,26 +178,8 @@ class SerialPortDriverImpl(
             Health.outOfService().withDetail("lastError", lastError).build()
         }
     }
-
-    private fun onDataReceived(
-        inputByteStream: InputStream,
-        dataReadyCallbackReference: AtomicReference<FluxSink<Byte>?>,
-        byteArray: ByteArray
-    ) {
-        val dataReadyCallback = dataReadyCallbackReference.get()
-        while (inputByteStream.available() > 0) {
-            val read = inputByteStream.read(byteArray)
-            readCounter.increment(read.toDouble())
-            for (i in 0 until read) dataReadyCallback?.next(byteArray[i])
-        }
-    }
 }
-
-private class CommandRequest(val id: Int, val request: ByteArray, val responseConsumer: FluxSink<Byte>, var cleanup: Disposable? = null) : Disposable {
-    override fun dispose() {
-        cleanup?.dispose()
-    }
-}
-
 private class RetryableException(msg: String) : Exception(msg)
+
+
 

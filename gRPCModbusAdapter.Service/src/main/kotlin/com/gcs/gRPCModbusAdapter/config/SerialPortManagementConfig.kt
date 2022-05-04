@@ -1,5 +1,6 @@
 package com.gcs.gRPCModbusAdapter.config
 
+import com.gcs.gRPCModbusAdapter.serialPort.CommandHandlerFactory
 import com.gcs.gRPCModbusAdapter.serialPort.SerialPortDriver
 import com.gcs.gRPCModbusAdapter.serialPort.SerialPortDriverImpl
 import gnu.io.RXTXPort
@@ -11,7 +12,6 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.web.context.support.GenericWebApplicationContext
 import reactor.core.Disposable
 import reactor.core.scheduler.Scheduler
-import reactor.core.scheduler.Schedulers
 import java.util.function.Function
 import java.util.function.Supplier
 import java.util.stream.Collectors
@@ -42,7 +42,8 @@ class SerialPortManagementConfig(
 
                 val writeCounter = registry.counter("serial_port_bytes_written", tags)
                 val readCounter = registry.counter("serial_port_bytes_read", tags)
-                val driver = SerialPortDriverImpl(it, scheduler, serialPortFactory, hardwareErrorPortCleaner, writeCounter, readCounter)
+                val commandHandlerFactory = CommandHandlerFactory(it, writeCounter, readCounter)
+                val driver = SerialPortDriverImpl(it, scheduler, serialPortFactory, hardwareErrorPortCleaner, commandHandlerFactory)
                 registry.gauge("serial_port_is_up", tags, driver) { p -> if (p.isRunning) 1.0 else 0.0 }
                 appCtx.registerBean(it.name, SerialPortDriver::class.java, Supplier { driver })
                 return@map driver

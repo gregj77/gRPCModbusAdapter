@@ -5,6 +5,7 @@ import com.gcs.gRPCModbusAdapter.validation.BaudRateConstraint
 import com.gcs.gRPCModbusAdapter.validation.DataBitsConstraint
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.boot.context.properties.ConstructorBinding
+import org.springframework.boot.context.properties.bind.DefaultValue
 import org.springframework.validation.annotation.Validated
 import javax.validation.constraints.Min
 import javax.validation.constraints.NotEmpty
@@ -49,6 +50,8 @@ data class SerialPortConfig (
     val parity: Parity,
 
     val stopBits: StopBits,
+
+    @DefaultValue("2000") val responseWaitTimeMillis: Int,
 )
 
 @Validated
