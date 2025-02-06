@@ -58,8 +58,8 @@ jobs:
 
     - name: Build and push docker
       if: github.ref == 'refs/heads/main'
-      run: docker buildx build --platform linux/amd64,linux/arm64 -f ./gRPCModbusAdapter.Service/Dockerfile -t gregj77/grpc-modbus-adapter:latest -t gregj77/grpc-modbus-adapter:1.0.$GITHUB_RUN_NUMBER --push ./gRPCModbusAdapter.Service
+      run: docker buildx build --platform linux/amd64,linux/arm64 -f ./gRPCModbusAdapter.Service/Dockerfile -t pejs77/grpc-modbus-adapter:latest -t pejs77/grpc-modbus-adapter:1.0.$GITHUB_RUN_NUMBER --push ./gRPCModbusAdapter.Service
 
     - name: Generate docker image on pull request
       if: github.event_name == 'pull_request'
-      run: docker buildx build --platform linux/amd64,linux/arm64 -f ./gRPCModbusAdapter.Service/Dockerfile -t gregj77/grpc-modbus-adapter:debug -t gregj77/grpc-modbus-adapter:1.0.$GITHUB_RUN_NUMBER-SNAPSHOT --push ./gRPCModbusAdapter.Service
+      run: docker buildx build --platform linux/amd64,linux/arm64 -f ./gRPCModbusAdapter.Service/Dockerfile -t pejs77/grpc-modbus-adapter:debug -t pejs77/grpc-modbus-adapter:1.0.$GITHUB_RUN_NUMBER-SNAPSHOT --push ./gRPCModbusAdapter.Service
