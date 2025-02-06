@@ -12,11 +12,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Set up JDK 11
-      uses: actions/setup-java@v2
+    - name: Set up JDK 17
+      uses: actions/setup-java@v3
       with:
-        java-version: '11'
-        distribution: 'adopt'
+        java-version: '17'
+        distribution: 'temurin'
         cache: maven
 
     - name: Update Version to release
@@ -40,10 +40,13 @@ jobs:
         username: ${{ secrets.DOCKER_USER }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
+#    - name: Build and push docker
+#      if: github.ref == 'refs/heads/main'
+#      run: mvn -B docker:build docker:push
     - name: Build and push docker
       if: github.ref == 'refs/heads/main'
-      run: mvn -B docker:build docker:push
+      run: docker buildx build --platform linux/amd64,linux/arm64 -t gregj77/grpc-modbus-adapter:latest -t gregj77/grpc-modbus-adapter:1.0.$GITHUB_RUN_NUMBER --push .
 
     - name: Generate docker image on pull request
       if: github.event_name == 'pull_request'
-      run: mvn -B docker:build docker:push
+      run: docker buildx build --platform linux/amd64,linux/arm64 -t gregj77/grpc-modbus-adapter:debug -t gregj77/grpc-modbus-adapter:1.0.$GITHUB_RUN_NUMBER-SNAPSHOT --push .
