@@ -1,13 +1,17 @@
 package com.gcs.gRPCModbusAdapter.serialPort
 
+import com.gcs.gRPCModbusAdapter.async.ReadStream
+import com.gcs.gRPCModbusAdapter.async.WriteStream
 import com.gcs.gRPCModbusAdapter.config.SerialPortConfig
 import io.micrometer.core.instrument.Counter
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.launch
 import mu.KotlinLogging
 import java.io.InputStream
 import java.io.OutputStream
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.TimeoutException
-import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.system.measureTimeMillis
 
 open class CommandHandlerFactory(private val cfg: SerialPortConfig, private val writeCounter: Counter, private val readCounter: Counter) {
@@ -18,88 +22,58 @@ open class CommandHandlerFactory(private val cfg: SerialPortConfig, private val 
 }
 
 open class CommandHandler(
-    private val input: InputStream,
-    private val output: OutputStream,
-    private val cfg: SerialPortConfig,
-    private val writeCounter: Counter,
-    private val readCounter: Counter) {
+    input: InputStream,
+    output: OutputStream,
+    cfg: SerialPortConfig,
+    writeCounter: Counter,
+    readCounter: Counter) : AutoCloseable {
 
     private val logger = KotlinLogging.logger {  }
-    private val dataReady = AtomicBoolean(false)
-    private val receiveBuffer = ByteArray(128)
-    private val sleepBetweenBytes = ((((cfg.dataBits + cfg.stopBits.value + 2) / cfg.baudRate.toDouble()) * 1_000.0) + 1.0).toLong()
     private val name = cfg.name
 
+    private val input = ReadStream(input, readCounter, cfg)
+    private val output = WriteStream(output, writeCounter, cfg)
+
+    private val commandChannel = Channel<Command>(128)
+
+    val commands: SendChannel<Command>
+        get() = commandChannel
+
     init {
-        logger.info { "setup $name complete - sleepBetweenBytes: $sleepBetweenBytes, wait for response: ${cfg.responseWaitTimeMillis} " }
+        logger.info { "setup $name complete - wait for response: ${cfg.responseWaitTimeMillis} " }
     }
 
-    fun notifyNewDataAvailable(newValue: Boolean, oldValue: Boolean) {
-        if (newValue != oldValue) {
-            logger.debug { "$name - data available event new: $newValue, old: $oldValue" }
-        }
-        dataReady.set(newValue)
-    }
+    fun notifyNewDataAvailable(newValue: Boolean, oldValue: Boolean) =
+        input.notifyDataEvent(newValue, oldValue)
 
-    fun onHandleCommand(id: Int, data: ByteArray, resultHandler: CompletableFuture<List<Byte>>) {
-        logger.debug { "$name - about to execute command $id..." }
-        try {
 
-            drainBuffer()
-            output.write(data)
-            writeCounter.increment(data.size.toDouble())
-            val commandWaitTime = awaitCommandResponse()
-
-            if (dataReady.get()) {
-                var readData = 0
-                var loops = 10
-                val readDuration = measureTimeMillis {
-                    while (--loops >= 0) {
-                        if (input.available() > 0) {
-                            val chunkSize = input.read(receiveBuffer, readData, receiveBuffer.size - readData)
-                            logger.debug { "$name - command $id - got chunk $chunkSize" }
-                            readData += chunkSize
-                            readCounter.increment(chunkSize.toDouble())
-                            loops = 10
-                        }
-                        tick()
-                    }
+    suspend fun handleCommandLoop() = coroutineScope {
+        commandChannel.receiveAsFlow().collect { cmd ->
+            try {
+                val result: ByteArray
+                val time = measureTimeMillis {
+                    input.drainBuffer()
+                    output.writeData(cmd.data)
+                    result = input.readData()
                 }
-                logger.debug { "$name - command $id - request/reply completed with $readData bytes after wait: $commandWaitTime ms, read: $readDuration ms" }
-                dataReady.set(false)
-                resultHandler.complete(receiveBuffer.take(readData).toList())
-            } else {
-                logger.warn { "$name - command $id - timeout while waiting for data!"}
-                resultHandler.completeExceptionally(TimeoutException("$name - did not receive any data in ${cfg.responseWaitTimeMillis.toLong()} ms"))
+                logger.debug { "$name - command ${cmd.id} request/reply completed in $time ms" }
+                launch {
+                    cmd.resultChannel.send(CommandResult(cmd.id, result, null))
+                }
+            } catch (err: Exception) {
+                logger.warn { "$name - command ${cmd.id} failed to execute with ${err.message} <${err.javaClass.name}>" }
+                launch {
+                    cmd.resultChannel.send(CommandResult(cmd.id, null, err))
+                }
             }
-
-        } catch (err: Exception) {
-            logger.warn { "$name - command $id failed to execute with ${err.message} <${err.javaClass.name}>" }
-            resultHandler.completeExceptionally(err)
         }
     }
 
-    private fun drainBuffer() {
-        while (input.available() > 0) {
-            input.read(receiveBuffer)
-        }
-        dataReady.set(false)
-    }
+    class Command(val id: Int, val data: ByteArray, val resultChannel: Channel<CommandResult>)
 
-    private fun awaitCommandResponse(): Long {
-        var waitTime = 0L
-        var remainingWaitTime = cfg.responseWaitTimeMillis.toLong()
-        while (remainingWaitTime >= 0 && !dataReady.get()) {
-            val tickDuration = measureTimeMillis {
-                Thread.sleep(sleepBetweenBytes)
-            }
-            remainingWaitTime -= tickDuration
-            waitTime += tickDuration
-        }
-        return waitTime
-    }
+    class CommandResult(val id: Int, val result: ByteArray?, val error: Exception?)
 
-    private fun tick() {
-        Thread.sleep(sleepBetweenBytes)
+    override fun close() {
+        commandChannel.close()
     }
 }

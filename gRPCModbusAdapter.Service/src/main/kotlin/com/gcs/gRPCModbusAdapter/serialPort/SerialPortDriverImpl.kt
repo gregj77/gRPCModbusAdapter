@@ -5,16 +5,17 @@ import gnu.io.PortInUseException
 import gnu.io.RXTXPort
 import gnu.io.SerialPortEvent
 import gnu.io.SerialPortEventListener
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.springframework.boot.actuate.health.Health
 import org.springframework.boot.actuate.health.HealthIndicator
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
-import reactor.core.publisher.Sinks
 import reactor.core.scheduler.Scheduler
 import reactor.util.retry.Retry
 import java.time.Duration
-import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -22,7 +23,7 @@ import java.util.concurrent.atomic.AtomicInteger
 interface SerialPortDriver : Disposable {
     val name: String
     val isRunning: Boolean
-    fun communicateAsync(data: ByteArray) : Flux<Byte>
+    suspend fun communicate(data: ByteArray): ByteArray
 }
 
 class SerialPortDriverImpl(
@@ -43,8 +44,8 @@ class SerialPortDriverImpl(
     private val running = AtomicBoolean(false)
 
     private val subscription: Disposable
-    private val commandsStream = Sinks.many().unicast().onBackpressureBuffer<Triple<Int, ByteArray, CompletableFuture<List<Byte>>>>()
     private var lastError: String? = null
+    private lateinit var commandsChannel: SendChannel<CommandHandler.Command>
 
     init {
 
@@ -75,7 +76,14 @@ class SerialPortDriverImpl(
                     notifyOnDataAvailable(true)
                 }
 
-                val commandHandlerToken = initializeRequestStream(commandHandler, commandsStream.asFlux())
+
+                scheduler.schedule {
+                    runBlocking {
+                        commandHandler.handleCommandLoop()
+                    }
+                }
+
+                val commandHandlerToken = { commandHandler.close() }
 
                 observer.onCancel {
                     if (running.get()) {
@@ -115,18 +123,6 @@ class SerialPortDriverImpl(
                 })
     }
 
-    private fun initializeRequestStream(
-        handler: CommandHandler,
-        requests: Flux<Triple<Int, ByteArray, CompletableFuture<List<Byte>>>>): Disposable {
-
-        return requests
-            .publishOn(scheduler)
-            .subscribe {
-                val (id, data, resultHandler) = it
-                handler.onHandleCommand(id, data, resultHandler)
-            }
-    }
-
     private fun onCleanup(commandHandlerToken: Disposable, serialPort: RXTXPort) {
         commandHandlerToken.dispose()
         running.set(false)
@@ -136,30 +132,19 @@ class SerialPortDriverImpl(
         }
     }
 
-    override fun communicateAsync(data: ByteArray): Flux<Byte> {
+    override suspend fun communicate(data: ByteArray) : ByteArray {
         val cmdId = id.incrementAndGet()
 
         if (isRunning.not()) {
-            return Flux.error(IllegalStateException("$name - failed to schedule command $cmdId - port not initialized!"))
+            throw IllegalStateException("$name - failed to schedule command $cmdId - port not initialized!")
         }
-
-        val result = CompletableFuture<List<Byte>>()
-        val cmd = Triple(cmdId, data, result)
-        val emitResult = commandsStream.tryEmitNext(cmd)
-        return if (emitResult != Sinks.EmitResult.OK) {
-            Flux.error(Exception("$name - failed to schedule command ${cmd.first} -> ${emitResult.name}"))
-        } else {
-            Flux.create {
-                result.handle { result, error ->
-                    if (error != null) {
-                        it.error(error)
-                    } else {
-                        result.forEach(it::next)
-                        it.complete()
-                    }
-                }
-            }
+        val resultChannel = Channel<CommandHandler.CommandResult>()
+        commandsChannel.send(CommandHandler.Command(cmdId, data, resultChannel))
+        val result = resultChannel.receive()
+        result.error?.let {
+            throw it
         }
+        return result.result!!
     }
 
     override fun dispose() {

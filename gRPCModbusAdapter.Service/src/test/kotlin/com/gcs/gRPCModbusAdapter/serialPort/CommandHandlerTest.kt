@@ -45,7 +45,7 @@ class CommandHandlerTest {
         every { inputStream.available() } returns 0
         every { outputStream.write(any<ByteArray>()) } just Runs
 
-        victim.onHandleCommand(1, bytes, completedCallback)
+        victim.handleCommandLoop(1, bytes, completedCallback)
 
         val err = assertThrows<ExecutionException> {
             completedCallback.get()
@@ -65,7 +65,7 @@ class CommandHandlerTest {
         every { inputStream.available() } returns 0
         every { outputStream.write(any<ByteArray>()) } throws InterruptedException("not possible!")
 
-        victim.onHandleCommand(1, bytes, completedCallback)
+        victim.handleCommandLoop(1, bytes, completedCallback)
 
         val err = assertThrows<ExecutionException> {
             completedCallback.get()
@@ -99,7 +99,7 @@ class CommandHandlerTest {
             3
         }
 
-        victim.onHandleCommand(1, bytes, completedCallback)
+        victim.handleCommandLoop(1, bytes, completedCallback)
 
         val result = completedCallback.get()
         assertThat(result)
@@ -135,7 +135,7 @@ class CommandHandlerTest {
             1
         }
 
-        victim.onHandleCommand(1, bytes, completedCallback)
+        victim.handleCommandLoop(1, bytes, completedCallback)
 
         val result = completedCallback.get()
         assertThat(result)
