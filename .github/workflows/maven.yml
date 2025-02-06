@@ -41,7 +41,7 @@ jobs:
       run: mvn -B versions:set -DnewVersion=1.0.$GITHUB_RUN_NUMBER-SNAPSHOT
 
     - name: Build with Maven
-      run: mvn -B package verify deploy org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=gregj77_gRPCModbusAdapter --file pom.xml -Dsonar.organization=gregj77 -Dsonar.host.url=https://sonarcloud.io -Dsonar.coverage.jacoco.xmlReportPaths=./target/site/jacoco/jacoco.xml
+      run: mvn -B package verify deploy org.sonarsource.scanner.maven:sonar-maven-plugin:5.0.0.4389:sonar -Dsonar.projectKey=gregj77_gRPCModbusAdapter --file pom.xml -Dsonar.organization=gregj77 -Dsonar.host.url=https://sonarcloud.io -Dsonar.coverage.jacoco.xmlReportPaths=./target/site/jacoco/jacoco.xml
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
@@ -53,6 +53,9 @@ jobs:
         username: ${{ secrets.DOCKER_USER }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+      
     - name: Build and push docker
       if: github.ref == 'refs/heads/main'
       run: docker buildx build --platform linux/amd64,linux/arm64 -t gregj77/grpc-modbus-adapter:latest -t gregj77/grpc-modbus-adapter:1.0.$GITHUB_RUN_NUMBER --push .
