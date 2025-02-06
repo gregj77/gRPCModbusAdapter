@@ -41,7 +41,7 @@ jobs:
       run: mvn -B versions:set -DnewVersion=1.0.$GITHUB_RUN_NUMBER-SNAPSHOT
 
     - name: Build with Maven
-      run: mvn -B package verify deploy org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=gregj77_gRPCModbusAdapter --file pom.xml -Dsonar.host.url=https://sonarcloud.io -Dsonar.coverage.jacoco.xmlReportPaths=./target/site/jacoco/jacoco.xml
+      run: mvn -B package verify deploy org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=gregj77_gRPCModbusAdapter --file pom.xml -Dsonar.organization=gregj77 -Dsonar.host.url=https://sonarcloud.io -Dsonar.coverage.jacoco.xmlReportPaths=./target/site/jacoco/jacoco.xml
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
