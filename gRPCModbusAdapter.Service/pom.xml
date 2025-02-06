@@ -226,11 +226,16 @@
             <plugin>
                 <groupId>io.fabric8</groupId>
                 <artifactId>docker-maven-plugin</artifactId>
+                <version>0.37.0</version>
                 <configuration>
                     <images>
                         <image>
                             <name>pejs77/${project.name}:${project.version}</name>
                             <alias>${project.name}-dockerimage</alias>
+                            <platforms>
+                                <platform>linux/amd64</platform>
+                                <platform>linux/arm64</platform>
+                            </platforms>
                             <build>
                                 <dockerFileDir>${project.basedir}</dockerFileDir>
                             </build>
