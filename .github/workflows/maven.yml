@@ -13,11 +13,24 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Set up JDK 17
-      uses: actions/setup-java@v3
+      uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
-        cache: maven
+
+    - name: Cache SonarQube packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.sonar/cache
+        key: ${{ runner.os }}-sonar
+        restore-keys: ${{ runner.os }}-sonar
+
+    - name: Cache Maven packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.m2
+        key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2
 
     - name: Update Version to release
       if: github.ref == 'refs/heads/main'
@@ -28,7 +41,7 @@ jobs:
       run: mvn -B versions:set -DnewVersion=1.0.$GITHUB_RUN_NUMBER-SNAPSHOT
 
     - name: Build with Maven
-      run: mvn -B package verify deploy sonar:sonar --file pom.xml -Dsonar.projectKey=gregj77_gRPCModbusAdapter -Dsonar.organization=gregj77 -Dsonar.host.url=https://sonarcloud.io -Dsonar.login=$SONAR_TOKEN -Dsonar.coverage.jacoco.xmlReportPaths=./target/site/jacoco/jacoco.xml
+      run: mvn -B package verify deploy org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=gregj77_gRPCModbusAdapter --file pom.xml -Dsonar.host.url=https://sonarcloud.io -Dsonar.coverage.jacoco.xmlReportPaths=./target/site/jacoco/jacoco.xml
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
