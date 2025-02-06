@@ -55,11 +55,11 @@ jobs:
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
-      
+
     - name: Build and push docker
       if: github.ref == 'refs/heads/main'
-      run: docker buildx build --platform linux/amd64,linux/arm64 -t gregj77/grpc-modbus-adapter:latest -t gregj77/grpc-modbus-adapter:1.0.$GITHUB_RUN_NUMBER --push .
+      run: docker buildx build --platform linux/amd64,linux/arm64 -f ./gRPCModbusAdapter.Service/Dockerfile -t gregj77/grpc-modbus-adapter:latest -t gregj77/grpc-modbus-adapter:1.0.$GITHUB_RUN_NUMBER --push .
 
     - name: Generate docker image on pull request
       if: github.event_name == 'pull_request'
-      run: docker buildx build --platform linux/amd64,linux/arm64 -t gregj77/grpc-modbus-adapter:debug -t gregj77/grpc-modbus-adapter:1.0.$GITHUB_RUN_NUMBER-SNAPSHOT --push .
+      run: docker buildx build --platform linux/amd64,linux/arm64 -f ./gRPCModbusAdapter.Service/Dockerfile -t gregj77/grpc-modbus-adapter:debug -t gregj77/grpc-modbus-adapter:1.0.$GITHUB_RUN_NUMBER-SNAPSHOT --push ./gRPCModbusAdapter.Service
