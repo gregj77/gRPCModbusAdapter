@@ -40,10 +40,16 @@ abstract class ModbusFunctionBase<in TArgs : FunctionArgs, TResult : Any>(privat
             .flatMap { extractOrThrow(id, args, it) }
             .retryWhen(createRetryStrategy(id))
             .timeout(Duration.ofSeconds(5L))
-            .doFinally {
-                if (it == SignalType.ON_COMPLETE || it == SignalType.ON_ERROR) {
+            .doFinally {signalType ->
+                val logDelegate: ((msg: () -> Any?) -> Unit)?  = when (signalType) {
+                    SignalType.ON_COMPLETE -> logger::info
+                    SignalType.ON_ERROR -> logger::warn
+                    SignalType.CANCEL -> logger::info
+                    else -> null
+                }
+                logDelegate?.let {
                     val stop = Instant.now().toEpochMilli()
-                    logger.info { "[$id] ${args.deviceId}.${args.registerId} function $functionName - completed with $it after ${stop - start} ms" }
+                    "[$id] ${args.deviceId}.${args.registerId} function $functionName - completed with $signalType after ${stop - start} ms"
                 }
             }
     }
@@ -54,7 +60,7 @@ abstract class ModbusFunctionBase<in TArgs : FunctionArgs, TResult : Any>(privat
             logger.debug { "[$id] got valid response from ${args.deviceId} query ${args.registerId} -> [${response.size} bytes]: $result, [${response.toHexString()}]" }
             return Mono.just(result)
         }
-        logger.warn { "[$id] failed to validate CRC from ${args.deviceId} response query ${args.registerId} - [${response.toHexString()}]" }
+        logger.debug { "[$id] failed to validate CRC from ${args.deviceId} response query ${args.registerId} - [${response.toHexString()}]" }
         return Mono.error(CrcCheckError())
     }
 
@@ -72,12 +78,10 @@ abstract class ModbusFunctionBase<in TArgs : FunctionArgs, TResult : Any>(privat
                     logger.debug { "[$id] retrying request due to CrcCheck error" }
                     sink.next(Context.of("retriesLeft", left - 1, "lastError", retrySignal.failure()))
                 } else {
-                    logger.info { "[$id] retry quota exceeded - aborting call" }
+                    logger.warn { "[$id] retry quota exceeded - aborting call" }
                     sink.error(Exceptions.retryExhausted("retries exhausted", retrySignal.failure()))
                 }
             }
         }
     }
-
 }
-
