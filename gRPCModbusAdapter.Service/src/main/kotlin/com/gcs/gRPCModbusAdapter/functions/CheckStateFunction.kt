@@ -2,10 +2,11 @@ package com.gcs.gRPCModbusAdapter.functions
 
 import com.gcs.gRPCModbusAdapter.functions.args.CheckStateFunctionArgs
 import com.gcs.gRPCModbusAdapter.functions.utils.MessageCRCService
+import mu.KotlinLogging
 import org.springframework.stereotype.Service
 
 @Service
-class CheckStateFunction(crcService: MessageCRCService) : ModbusFunctionBase<CheckStateFunctionArgs, Byte>(crcService, 9) {
+class CheckStateFunction(crcService: MessageCRCService) : ModbusFunctionBase<CheckStateFunctionArgs, Byte>(crcService, 9, KotlinLogging.logger{ }) {
     override val functionName: String
         get() = FunctionName
 

@@ -2,6 +2,7 @@ package com.gcs.gRPCModbusAdapter.functions
 
 import com.gcs.gRPCModbusAdapter.functions.args.FunctionArgs
 import com.gcs.gRPCModbusAdapter.functions.utils.MessageCRCService
+import mu.KLogger
 import mu.KotlinLogging
 import reactor.core.Exceptions
 import reactor.core.publisher.Flux
@@ -19,8 +20,7 @@ interface ModbusFunction {
     val functionName: String
 }
 
-abstract class ModbusFunctionBase<in TArgs : FunctionArgs, TResult>(private val crcService: MessageCRCService, private val responseMessageSize: Int) : ModbusFunction {
-    private val logger = KotlinLogging.logger(this.javaClass.name)
+abstract class ModbusFunctionBase<in TArgs : FunctionArgs, TResult>(private val crcService: MessageCRCService, private val responseMessageSize: Int, private val logger: KLogger) : ModbusFunction {
 
     fun execute(args: TArgs): Mono<TResult> {
         logger.debug { "preparing message for ${args.deviceId} to query ${args.registerId} ..." }
