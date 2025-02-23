@@ -42,10 +42,14 @@ abstract class ModbusFunctionBase<in TArgs : FunctionArgs, TResult>(private val 
             logger.debug { "got valid response from ${args.deviceId} query ${args.registerId} -> [${response.size} bytes]: $result" }
             return result
         }
-        logger.warn { "failed to validate CRC from ${args.deviceId} response query ${args.registerId}" }
+        logger.warn { "failed to validate CRC from ${args.deviceId} response query ${args.registerId} - [${response.toHexString()}]" }
         throw CrcCheckError()
     }
 
     protected abstract fun extractValue(response: ByteArray): TResult
+
+    private fun ByteArray.toHexString() : String {
+        return joinToString ( separator = " " ) { "%02x".format(it) }
+    }
 }
 

@@ -21,6 +21,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.system.measureTimeMillis
 
 
 class SerialPortDriverImplV2(
@@ -140,40 +141,50 @@ class SerialPortDriverImplV2(
         processingComplete: SynchronousSink<Unit>
     ) {
 
+        logger.debug { "$name - about to execute command $id... [${bytes.size} bytes]"  }
         port.flushIOBuffers()
 
         val writtenBytes = port.writeBytes(bytes, bytes.size)
         writtenBytesCounter.increment(writtenBytes.toDouble())
 
         if (writtenBytes != bytes.size) {
-            val msg = "could not write all required bytes for command $cmdId"
+            val msg = "$name - could not write all required bytes for command $cmdId"
             logger.warn { msg }
             responseOutStream.error(Exception(msg))
             processingComplete.next(Unit)
             return
         }
 
-        try {
-            port.inputStream.use {
-                while (!responseOutStream.isCancelled) {
-                    val data = it.read()
-                    if (data != -1) {
-                        readBytesCounter.increment()
-                        responseOutStream.next(data.toByte())
-                    } else {
-                        responseOutStream.error(Exception("end of stream detected"))
-                        break
+        val timeTaken = measureTimeMillis {
+            try {
+
+                port.inputStream.use {
+                    var readBytes = 0
+                    while (!responseOutStream.isCancelled) {
+                        try {
+                            val data = it.read()
+                            if (data != -1) {
+                                ++readBytes
+                                readBytesCounter.increment()
+                                responseOutStream.next(data.toByte())
+                            } else {
+                                responseOutStream.error(Exception("end of stream detected"))
+                                break
+                            }
+                        } catch (e: SerialPortTimeoutException) {
+                            logger.debug { "$name - timeout while waiting for response of $cmdId; read $readBytes so far..." }
+                        }
                     }
+                    logger.debug { "$name - caller for $cmdId cancelled data collection after collecting $readBytes bytes" }
                 }
+            } catch (e: Exception) {
+                logger.warn { "$name - command $id failed to execute with ${e.message} <${e.javaClass.name}>" }
+                responseOutStream.error(e)
+            } finally {
+                processingComplete.next(Unit)
             }
-        } catch (e: SerialPortTimeoutException) {
-            responseOutStream.error(TimeoutException(e.message))
-        } catch(e: Exception) {
-            responseOutStream.error(e)
         }
-        finally {
-            processingComplete.next(Unit)
-        }
+        logger.debug { "$name command $cmdId complete after $timeTaken millis" }
     }
 
     private fun onCleanup(commandHandlerToken: Disposable, serialPort: SerialPort) {

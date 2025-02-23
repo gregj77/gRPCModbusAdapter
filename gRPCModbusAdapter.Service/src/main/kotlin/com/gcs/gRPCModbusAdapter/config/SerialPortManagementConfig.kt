@@ -81,20 +81,6 @@ class SerialPortDriverFactory(
     @Bean
     @Primary
     @Profile("!v2Driver")
-    fun v1DriverFactory() : SerialPortCreator {
-        return object :SerialPortCreator {
-            override fun create(
-                config: SerialPortConfig,
-                writtenBytesCounter: Counter,
-                readBytesCounter: Counter
-            ): SerialPortDriver {
-                return SerialPortDriverImplV2(config, scheduler, v2SerialPortFactory, writtenBytesCounter, readBytesCounter)
-            }
-        }
-    }
-
-    @Bean
-    @Profile("v2Driver")
     fun v2DriverFactory() : SerialPortCreator {
         return object :SerialPortCreator {
             override fun create(
@@ -104,6 +90,20 @@ class SerialPortDriverFactory(
             ): SerialPortDriver {
                 val commandHandlerFactory = CommandHandlerFactory(config, writtenBytesCounter, readBytesCounter)
                 return SerialPortDriverImpl(config, scheduler, v1SerialPortFactory, hardwareErrorPortCleaner, commandHandlerFactory)
+            }
+        }
+    }
+
+    @Bean
+    @Profile("v2Driver")
+    fun v1DriverFactory() : SerialPortCreator {
+        return object :SerialPortCreator {
+            override fun create(
+                config: SerialPortConfig,
+                writtenBytesCounter: Counter,
+                readBytesCounter: Counter
+            ): SerialPortDriver {
+                return SerialPortDriverImplV2(config, scheduler, v2SerialPortFactory, writtenBytesCounter, readBytesCounter)
             }
         }
     }
