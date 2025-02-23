@@ -82,6 +82,11 @@
             <groupId>com.neuronrobotics</groupId>
             <artifactId>nrjavaserial</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.fazecast</groupId>
+            <artifactId>jSerialComm</artifactId>
+            <version>${jSerial.version}</version>
+        </dependency>
 
         <!-- test dependencies -->
         <dependency>
