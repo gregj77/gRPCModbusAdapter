@@ -41,15 +41,15 @@ abstract class ModbusFunctionBase<in TArgs : FunctionArgs, TResult : Any>(privat
             .retryWhen(createRetryStrategy(id))
             .timeout(Duration.ofSeconds(5L))
             .doFinally {signalType ->
-                val logDelegate: ((msg: () -> Any?) -> Unit)?  = when (signalType) {
-                    SignalType.ON_COMPLETE -> logger::info
-                    SignalType.ON_ERROR -> logger::warn
-                    SignalType.CANCEL -> logger::info
-                    else -> null
+                val shouldLog  = when (signalType) {
+                    SignalType.ON_COMPLETE -> true
+                    SignalType.ON_ERROR -> true
+                    SignalType.CANCEL -> true
+                    else -> false
                 }
-                logDelegate?.let {
+                if (shouldLog) {
                     val stop = Instant.now().toEpochMilli()
-                    "[$id] ${args.deviceId}.${args.registerId} function $functionName - completed with $signalType after ${stop - start} ms"
+                    logger.info { "[$id] ${args.deviceId}.${args.registerId} function $functionName - completed with $signalType after ${stop - start} ms" }
                 }
             }
     }
