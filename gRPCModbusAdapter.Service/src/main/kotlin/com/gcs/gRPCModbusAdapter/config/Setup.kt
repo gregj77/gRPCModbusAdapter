@@ -1,5 +1,6 @@
 package com.gcs.gRPCModbusAdapter.config
 
+import com.fazecast.jSerialComm.SerialPort
 import com.gcs.gRPCModbusAdapter.ModbusAdapter
 import gnu.io.CommPortIdentifier
 import gnu.io.RXTXPort
@@ -31,6 +32,23 @@ class Setup {
             }
             portInternalCloseStore[portName] = { ensurePortIsClosed(portId) }
             portId.open(ModbusAdapter::class.simpleName, 0)
+        }
+    }
+
+    @Bean
+    fun v2SerialPortFactory(commPorts: () -> Array<CommPortIdentifier>): (String) -> SerialPort {
+        return { portName ->
+            val portId = commPorts
+                .invoke()
+                .filter { it.portType == CommPortIdentifier.PORT_SERIAL && it.name == portName}
+                .take(1)
+                .firstOrNull()
+
+            if (portId == null) {
+                logger.error { "can't find serial port $portName installed on the system" }
+                throw IllegalArgumentException("Port $portName not found!")
+            }
+            SerialPort.getCommPort(portId.name)
         }
     }
 

@@ -7,7 +7,6 @@ import gnu.io.SerialPortEvent
 import gnu.io.SerialPortEventListener
 import mu.KotlinLogging
 import org.springframework.boot.actuate.health.Health
-import org.springframework.boot.actuate.health.HealthIndicator
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks
@@ -19,19 +18,13 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 
-interface SerialPortDriver : Disposable {
-    val name: String
-    val isRunning: Boolean
-    fun communicateAsync(data: ByteArray) : Flux<Byte>
-}
-
 class SerialPortDriverImpl(
     private val cfg: SerialPortConfig,
     private val scheduler: Scheduler,
     private val serialPortFactory: (String) -> RXTXPort,
     private val hardwareErrorPortCleaner: (String) -> Unit,
     commandHandlerFactory: CommandHandlerFactory
-) : SerialPortDriver, HealthIndicator {
+) : SerialPortDriver {
     private val logger = KotlinLogging.logger {}
 
     override val name: String
@@ -179,7 +172,6 @@ class SerialPortDriverImpl(
         }
     }
 }
-private class RetryableException(msg: String) : Exception(msg)
 
 
 
