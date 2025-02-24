@@ -11,20 +11,20 @@ import org.springframework.context.annotation.Configuration
 import reactor.core.scheduler.Scheduler
 import reactor.core.scheduler.Schedulers
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import javax.annotation.PreDestroy
 
 @Configuration
 class Setup {
     private val logger = KotlinLogging.logger {}
     private val portInternalCloseStore: ConcurrentHashMap<String, () -> Unit> = ConcurrentHashMap()
+    private val executor = Executors.newWorkStealingPool()
 
     @Bean
     fun serialPortFactory(commPorts: () -> Array<CommPortIdentifier>): (String) -> RXTXPort {
         return { portName ->
-            val portId = commPorts
-                .invoke()
-                .filter { it.portType == CommPortIdentifier.PORT_SERIAL && it.name == portName}
-                .take(1)
-                .firstOrNull()
+            val portId = lookupPort(commPorts, portName)
 
             if (portId == null) {
                 logger.error { "can't find serial port $portName installed on the system" }
@@ -38,18 +38,21 @@ class Setup {
     @Bean
     fun v2SerialPortFactory(commPorts: () -> Array<CommPortIdentifier>): (String) -> SerialPort {
         return { portName ->
-            val portId = commPorts
-                .invoke()
-                .filter { it.portType == CommPortIdentifier.PORT_SERIAL && it.name == portName}
-                .take(1)
-                .firstOrNull()
-
+            val portId = lookupPort(commPorts, portName)
             if (portId == null) {
                 logger.error { "can't find serial port $portName installed on the system" }
                 throw IllegalArgumentException("Port $portName not found!")
             }
             SerialPort.getCommPort(portId.name)
         }
+    }
+
+    private fun lookupPort(commPorts: () -> Array<CommPortIdentifier>, portName: String): CommPortIdentifier? {
+        return commPorts
+            .invoke()
+            .filter { it.portType == CommPortIdentifier.PORT_SERIAL && it.name == portName }
+            .take(1)
+            .firstOrNull()
     }
 
     @Bean
@@ -81,6 +84,12 @@ class Setup {
 
     @Bean
     fun scheduler(): Scheduler {
-        return Schedulers.single()
+        return Schedulers.fromExecutorService(executor)
+    }
+
+    @PreDestroy
+    fun cleanup() {
+        executor.shutdown()
+        executor.awaitTermination(10L, TimeUnit.SECONDS)
     }
 }
