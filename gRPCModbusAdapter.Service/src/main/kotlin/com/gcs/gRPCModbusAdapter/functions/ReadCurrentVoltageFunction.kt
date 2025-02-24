@@ -3,10 +3,13 @@ package com.gcs.gRPCModbusAdapter.functions
 import com.gcs.gRPCModbusAdapter.functions.args.ReadCurrentVoltageFunctionArgs
 import com.gcs.gRPCModbusAdapter.functions.utils.MessageCRCServiceImpl
 import com.gcs.gRPCModbusAdapter.functions.utils.toShort
+import mu.KotlinLogging
 import org.springframework.stereotype.Service
+import reactor.core.scheduler.Scheduler
 
 @Service
-class ReadCurrentVoltageFunction(crcService: MessageCRCServiceImpl) : ModbusFunctionBase<ReadCurrentVoltageFunctionArgs, Float>(crcService, 9) {
+class ReadCurrentVoltageFunction(crcService: MessageCRCServiceImpl, scheduler: Scheduler) : ModbusFunctionBase<ReadCurrentVoltageFunctionArgs, Float>(crcService, 9, KotlinLogging.logger{ }, scheduler) {
+
     override val functionName: String
         get() = FunctionName
 
@@ -15,5 +18,4 @@ class ReadCurrentVoltageFunction(crcService: MessageCRCServiceImpl) : ModbusFunc
     companion object {
         const val FunctionName = "ReadCurrentVoltage"
     }
-
 }

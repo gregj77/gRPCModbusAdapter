@@ -12,12 +12,13 @@ import org.assertj.core.api.Assertions
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 import reactor.core.publisher.Flux
+import reactor.core.scheduler.Schedulers
 import java.util.concurrent.ExecutionException
 
 internal class ReadTotalPowerFunctionTest {
     @Test
     fun `function returns expected name`() {
-        val victim = ReadTotalPowerFunction(mockk<MessageCRCServiceImpl>())
+        val victim = ReadTotalPowerFunction(mockk<MessageCRCServiceImpl>(), Schedulers.immediate())
 
         Assertions.assertThat(victim.functionName).isEqualTo("ReadTotalPower")
     }
@@ -30,7 +31,7 @@ internal class ReadTotalPowerFunctionTest {
         every { crcService.checkCrc(any()) } returns true
         every { driverMock.communicateAsync(any()) } returns Flux.just(
             0x1, 0x3, 0x4, 0x00, 0x1, 0x00, 0xff.toByte(), 0xff.toByte(), 0xff.toByte())
-        val victim = ReadTotalPowerFunction(crcService)
+        val victim = ReadTotalPowerFunction(crcService, Schedulers.parallel())
 
         val result = victim.execute(ReadTotalPowerFunctionArgs(driverMock, 1, RegisterId.TOTAL_POWER)).block()
         Assertions.assertThat(result).isEqualTo(657.91f)
@@ -48,7 +49,7 @@ internal class ReadTotalPowerFunctionTest {
         every { crcService.checkCrc(any()) } returns false
         every { driverMock.communicateAsync(any()) } returns Flux.just(
             0x1, 0x3, 0x4, 0x00, 0x1, 0x00, 0xff.toByte(), 0xff.toByte(), 0xff.toByte())
-        val victim = ReadTotalPowerFunction(crcService)
+        val victim = ReadTotalPowerFunction(crcService, Schedulers.parallel())
 
         assertThrows(CrcCheckError::class.java) {
             try {

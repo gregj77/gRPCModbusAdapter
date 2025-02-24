@@ -9,6 +9,7 @@ import mu.KotlinLogging
 import org.springframework.boot.actuate.health.Health
 import org.springframework.boot.actuate.health.ReactiveHealthIndicator
 import reactor.core.publisher.Mono
+import reactor.core.scheduler.Scheduler
 import java.time.Duration
 
 interface ModbusDevice {
@@ -38,9 +39,12 @@ class ModbusDeviceImpl(
         val checkStateFunc =  @Suppress("UNCHECKED_CAST")(functionServices[DeviceFunction.DEVICE_ID.functionServiceName] as ModbusFunctionBase<CheckStateFunctionArgs, Byte>)
         return checkStateFunc
             .execute(CheckStateFunctionArgs(port, deviceId))
-            .map { if (it != deviceId) throw IllegalStateException("Invalid device id") else it }
+            .handle<Byte> { it, sink -> if (it != deviceId) {
+                sink.error(IllegalStateException("Invalid device id"))
+            } else {
+                sink.next(it)
+            } }
             .map { Health.up().build() }
-            .timeout(Duration.ofSeconds(5L))
             .onErrorResume { Mono.just(Health.down().withDetail("error", it.message).build()) }
     }
 
