@@ -9,6 +9,7 @@ import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import reactor.core.publisher.SignalType
 import reactor.core.publisher.SynchronousSink
+import reactor.core.scheduler.Scheduler
 import reactor.util.context.Context
 import reactor.util.retry.Retry
 import reactor.util.retry.Retry.RetrySignal
@@ -23,7 +24,7 @@ interface ModbusFunction {
 
 val executionId = AtomicInteger(0)
 
-abstract class ModbusFunctionBase<in TArgs : FunctionArgs, TResult : Any>(private val crcService: MessageCRCService, private val responseMessageSize: Int, private val logger: KLogger) : ModbusFunction {
+abstract class ModbusFunctionBase<in TArgs : FunctionArgs, TResult : Any>(private val crcService: MessageCRCService, private val responseMessageSize: Int, private val logger: KLogger, private val scheduler: Scheduler) : ModbusFunction {
 
     fun execute(args: TArgs): Mono<TResult> {
         val id = executionId.incrementAndGet()
@@ -39,7 +40,7 @@ abstract class ModbusFunctionBase<in TArgs : FunctionArgs, TResult : Any>(privat
             .collect({ response }, { buffer, valueAndIndex -> buffer[valueAndIndex.t1.toInt()] = valueAndIndex.t2 })
             .flatMap { extractOrThrow(id, args, it) }
             .retryWhen(createRetryStrategy(id))
-            .timeout(Duration.ofSeconds(5L))
+            .timeout(Duration.ofSeconds(5L), scheduler)
             .doFinally {signalType ->
                 val shouldLog  = when (signalType) {
                     SignalType.ON_COMPLETE -> true

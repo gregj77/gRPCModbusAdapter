@@ -16,12 +16,13 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import org.junit.jupiter.params.provider.ValueSource
 import reactor.core.publisher.Flux
+import reactor.core.scheduler.Schedulers
 import java.util.concurrent.ExecutionException
 
 internal class ReadCurrentVoltageFunctionTest {
     @Test
     fun `function returns expected name`() {
-        val victim = ReadCurrentVoltageFunction(mockk<MessageCRCServiceImpl>())
+        val victim = ReadCurrentVoltageFunction(mockk<MessageCRCServiceImpl>(), Schedulers.immediate())
 
         Assertions.assertThat(victim.functionName).isEqualTo("ReadCurrentVoltage")
     }
@@ -35,7 +36,7 @@ internal class ReadCurrentVoltageFunctionTest {
         every { crcService.checkCrc(any()) } returns true
         every { driverMock.communicateAsync(any()) } returns Flux.just(
             0x1, 0x3, 0x4, 0x09, 0x1b, 0x00, 0x00, 0xff.toByte(), 0xff.toByte())
-        val victim = ReadCurrentVoltageFunction(crcService)
+        val victim = ReadCurrentVoltageFunction(crcService, Schedulers.parallel())
 
         val result = victim.execute(ReadCurrentVoltageFunctionArgs(driverMock, 1, registerId)).block()
         Assertions.assertThat(result).isEqualTo(233.1f)
@@ -54,7 +55,7 @@ internal class ReadCurrentVoltageFunctionTest {
         every { crcService.checkCrc(any()) } returns false
         every { driverMock.communicateAsync(any()) } returns Flux.just(
             0x1, 0x3, 0x4, 0x09, 0x1b, 0x00, 0x00, 0xff.toByte(), 0xff.toByte())
-        val victim = ReadCurrentVoltageFunction(crcService)
+        val victim = ReadCurrentVoltageFunction(crcService, Schedulers.parallel())
 
         assertThrows(CrcCheckError::class.java) {
             try {

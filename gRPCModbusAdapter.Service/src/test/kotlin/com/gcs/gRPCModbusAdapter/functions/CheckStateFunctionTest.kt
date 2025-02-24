@@ -11,11 +11,12 @@ import org.assertj.core.api.Assertions
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import reactor.core.publisher.Flux
+import reactor.core.scheduler.Schedulers
 
 internal class CheckStateFunctionTest {
     @Test
     fun `function returns expected name`() {
-        val victim = CheckStateFunction(mockk<MessageCRCServiceImpl>())
+        val victim = CheckStateFunction(mockk<MessageCRCServiceImpl>(), Schedulers.immediate())
 
         Assertions.assertThat(victim.functionName).isEqualTo("ReadModbusDeviceId")
     }
@@ -28,7 +29,7 @@ internal class CheckStateFunctionTest {
         every { crcService.checkCrc(any()) } returns true
         every { driverMock.communicateAsync(any()) } returns Flux.just(
             0x5, 0x3, 0x4, 0x05, 0x0, 0x00, 0xff.toByte(), 0xff.toByte(), 0xff.toByte())
-        val victim = CheckStateFunction(crcService)
+        val victim = CheckStateFunction(crcService, Schedulers.parallel())
 
         val result = victim.execute(CheckStateFunctionArgs(driverMock, 5)).block()
         Assertions.assertThat(result).isEqualTo(5)
@@ -46,7 +47,7 @@ internal class CheckStateFunctionTest {
         every { crcService.checkCrc(any()) } returns false
         every { driverMock.communicateAsync(any()) } returns Flux.just(
             0x5, 0x3, 0x4, 0x00, 0x2, 0x00, 0xff.toByte(), 0xff.toByte(), 0xff.toByte())
-        val victim = CheckStateFunction(crcService)
+        val victim = CheckStateFunction(crcService, Schedulers.parallel())
 
         assertThrows(CrcCheckError::class.java) {
             try {

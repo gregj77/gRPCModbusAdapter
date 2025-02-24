@@ -5,9 +5,10 @@ import com.gcs.gRPCModbusAdapter.functions.utils.MessageCRCServiceImpl
 import com.gcs.gRPCModbusAdapter.functions.utils.toInt
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
+import reactor.core.scheduler.Scheduler
 
 @Service
-class ReadCurrentPowerFunction(crcService: MessageCRCServiceImpl) : ModbusFunctionBase<ReadCurrentPowerFunctionArgs, Float>(crcService, 9, KotlinLogging.logger{ }) {
+class ReadCurrentPowerFunction(crcService: MessageCRCServiceImpl, scheduler: Scheduler) : ModbusFunctionBase<ReadCurrentPowerFunctionArgs, Float>(crcService, 9, KotlinLogging.logger{ }, scheduler) {
 
     override val functionName: String
         get() = FunctionName
@@ -18,4 +19,3 @@ class ReadCurrentPowerFunction(crcService: MessageCRCServiceImpl) : ModbusFuncti
         const val FunctionName = "ReadCurrentPower"
     }
 }
-
