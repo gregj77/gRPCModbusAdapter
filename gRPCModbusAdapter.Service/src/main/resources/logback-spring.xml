@@ -32,7 +32,7 @@
     </logger>
 
     <!-- Logger for com.gcs package (logs to console) -->
-    <logger name="com.gcs" level="${logging.level.com.gcs:DEBUG}">
+    <logger name="com.gcs" level="${logging.level.com.gcs:DEBUG}"  additivity="false">
         <appender-ref ref="CONSOLE" />
     </logger>
 
