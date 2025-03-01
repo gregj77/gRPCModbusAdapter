@@ -21,3 +21,7 @@ internal fun ByteArray.toShort(dataStartIndex: Int): Short {
 
     return result.toShort()
 }
+
+fun ByteArray.toHexString(): String {
+    return joinToString(separator = " ") { "%02x".format(it) }
+}

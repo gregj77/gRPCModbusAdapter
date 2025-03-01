@@ -2,6 +2,7 @@ package com.gcs.gRPCModbusAdapter.functions
 
 import com.gcs.gRPCModbusAdapter.functions.args.CheckStateFunctionArgs
 import com.gcs.gRPCModbusAdapter.functions.utils.MessageCRCServiceImpl
+import com.gcs.gRPCModbusAdapter.functions.utils.NOPCommunicationLogger
 import com.gcs.gRPCModbusAdapter.serialPort.SerialPortDriver
 import io.mockk.confirmVerified
 import io.mockk.every
@@ -17,6 +18,7 @@ internal class CheckStateFunctionTest {
     @Test
     fun `function returns expected name`() {
         val victim = CheckStateFunction(mockk<MessageCRCServiceImpl>(), Schedulers.immediate())
+        victim.payloadLogger = NOPCommunicationLogger()
 
         Assertions.assertThat(victim.functionName).isEqualTo("ReadModbusDeviceId")
     }
@@ -30,6 +32,7 @@ internal class CheckStateFunctionTest {
         every { driverMock.communicateAsync(any()) } returns Flux.just(
             0x5, 0x3, 0x4, 0x05, 0x0, 0x00, 0xff.toByte(), 0xff.toByte(), 0xff.toByte())
         val victim = CheckStateFunction(crcService, Schedulers.parallel())
+        victim.payloadLogger = NOPCommunicationLogger()
 
         val result = victim.execute(CheckStateFunctionArgs(driverMock, 5)).block()
         Assertions.assertThat(result).isEqualTo(5)
@@ -48,6 +51,7 @@ internal class CheckStateFunctionTest {
         every { driverMock.communicateAsync(any()) } returns Flux.just(
             0x5, 0x3, 0x4, 0x00, 0x2, 0x00, 0xff.toByte(), 0xff.toByte(), 0xff.toByte())
         val victim = CheckStateFunction(crcService, Schedulers.parallel())
+        victim.payloadLogger = NOPCommunicationLogger()
 
         assertThrows(CrcCheckError::class.java) {
             try {
