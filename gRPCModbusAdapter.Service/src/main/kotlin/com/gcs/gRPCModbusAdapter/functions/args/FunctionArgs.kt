@@ -26,4 +26,8 @@ abstract class FunctionArgs(val driver: SerialPortDriver, val deviceId: Byte, va
     }
 
     protected abstract fun onFormatMessage(request: ByteArray)
+
+    fun responseDeviceMatchesRequest(response: ByteArray): Boolean {
+        return response.size > 1 && deviceId == response[0]
+    }
 }

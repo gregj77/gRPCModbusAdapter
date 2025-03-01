@@ -12,9 +12,7 @@ interface CommunicationLogger {
 @Component
 @Profile("!ExtendedLogging")
 class NOPCommunicationLogger : CommunicationLogger {
-    override fun logCommunication(request: ByteArray, response: ByteArray) {
-    }
-
+    override fun logCommunication(request: ByteArray, response: ByteArray) {}
 }
 
 @Component
@@ -24,9 +22,6 @@ class CommunicationLoggerImpl : CommunicationLogger {
     private val logger = KotlinLogging.logger{}
     private val mapper = ObjectMapper()
 
-    init {
-        logger.trace { mapper.writeValueAsString(Payload("hello", "world")) }
-    }
     override fun logCommunication(request: ByteArray, response: ByteArray) {
         logger.trace { mapper.writeValueAsString(Payload(request.toHexString(), response.toHexString())) }
     }

@@ -1,3 +1,6 @@
 package com.gcs.gRPCModbusAdapter.functions
 
-class CrcCheckError : Exception("CRC check failed on incoming message")
+
+abstract class CheckError(msg: String): Exception(msg)
+class CrcCheckError : CheckError("CRC check failed on incoming message")
+class DeviceIdCheckError(expected: Byte, actual: Byte): CheckError("Expected $expected DeviceId does not match actual $actual")

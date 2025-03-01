@@ -51,7 +51,7 @@ abstract class ModbusFunctionBase<in TArgs : FunctionArgs, TResult>(
         }
             .flatMap { extractOrThrow(id, args, it) }
             .retryWhen(createRetryStrategy(id))
-            .timeout(Duration.ofSeconds(5))
+            .timeout(Duration.ofSeconds(5), scheduler)
             .doFinally {signalType ->
                 val shouldLog  = when (signalType) {
                     SignalType.ON_COMPLETE -> true
@@ -68,16 +68,22 @@ abstract class ModbusFunctionBase<in TArgs : FunctionArgs, TResult>(
 
     private fun extractOrThrow(id: Int, args: TArgs, response: ByteArray): Mono<TResult> {
         if (crcService.checkCrc(response)) {
+
+            if (!args.responseDeviceMatchesRequest(response)) {
+                logger.warn { "[$id] deviceId ${args.deviceId} in response does not match requested deviceId ${response[0]} [${response.toHexString()}]" }
+                return Mono.error(DeviceIdCheckError(args.deviceId, response[0]))
+            }
+
             val result = extractValue(response)
             logger.debug { "[$id] got valid response from ${args.deviceId} query ${args.registerId} -> [${response.size} bytes]: $result, [${response.toHexString()}]" }
             return Mono.just(result)
         }
+
         logger.debug { "[$id] failed to validate CRC from ${args.deviceId} response query ${args.registerId} - [${response.toHexString()}]" }
         return Mono.error(CrcCheckError())
     }
 
     protected abstract fun extractValue(response: ByteArray): TResult
-
 
     private fun createRetryStrategy(id : Int): Retry {
         return Retry.from { companion: Flux<RetrySignal> ->
@@ -85,9 +91,9 @@ abstract class ModbusFunctionBase<in TArgs : FunctionArgs, TResult>(
                 val retries = retrySignal.totalRetries()
                 val failure = retrySignal.failure()
 
-                if (retries < 2 && failure is CrcCheckError) {
-                    logger.debug { "[$id] retrying request due to CrcCheck error" }
-                    Mono.delay(Duration.ofMillis(100L)).thenReturn(retrySignal)
+                if (retries < 2 && failure is CheckError) {
+                    logger.debug { "[$id] retrying request due to '${failure.message}' error" }
+                    Mono.delay(Duration.ofMillis(100L), scheduler).thenReturn(retrySignal)
                 } else{
                     logger.warn { "[$id] retry quota exceeded - aborting call" }
                     Mono.error(Exceptions.retryExhausted("retries exhausted", failure))
