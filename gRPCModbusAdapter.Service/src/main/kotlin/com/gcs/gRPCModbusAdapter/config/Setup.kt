@@ -19,7 +19,6 @@ import javax.annotation.PreDestroy
 class Setup {
     private val logger = KotlinLogging.logger {}
     private val portInternalCloseStore: ConcurrentHashMap<String, () -> Unit> = ConcurrentHashMap()
-    private val executor = Executors.newWorkStealingPool()
 
     @Bean
     fun serialPortFactory(commPorts: () -> Array<CommPortIdentifier>): (String) -> RXTXPort {
@@ -84,12 +83,10 @@ class Setup {
 
     @Bean
     fun scheduler(): Scheduler {
-        return Schedulers.fromExecutorService(executor)
+        return Schedulers.single()
     }
 
     @PreDestroy
     fun cleanup() {
-        executor.shutdown()
-        executor.awaitTermination(10L, TimeUnit.SECONDS)
     }
 }
