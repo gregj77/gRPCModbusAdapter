@@ -31,7 +31,7 @@ abstract class ModbusFunctionBase<in TArgs : FunctionArgs, TResult>(
     private val scheduler: Scheduler) : ModbusFunction{
 
     @Autowired
-    private lateinit var payloadLogger: CommunicationLogger
+    lateinit var payloadLogger: CommunicationLogger
 
     fun execute(args: TArgs): Mono<TResult> {
         val id = executionId.incrementAndGet()

@@ -4,6 +4,7 @@ import com.gcs.gRPCModbusAdapter.functions.args.ReadCurrentVoltageFunctionArgs
 import com.gcs.gRPCModbusAdapter.functions.args.ReadTotalPowerFunctionArgs
 import com.gcs.gRPCModbusAdapter.functions.args.RegisterId
 import com.gcs.gRPCModbusAdapter.functions.utils.MessageCRCServiceImpl
+import com.gcs.gRPCModbusAdapter.functions.utils.NOPCommunicationLogger
 import com.gcs.gRPCModbusAdapter.serialPort.SerialPortDriver
 import io.mockk.confirmVerified
 import io.mockk.every
@@ -37,6 +38,7 @@ internal class ReadCurrentVoltageFunctionTest {
         every { driverMock.communicateAsync(any()) } returns Flux.just(
             0x1, 0x3, 0x4, 0x09, 0x1b, 0x00, 0x00, 0xff.toByte(), 0xff.toByte())
         val victim = ReadCurrentVoltageFunction(crcService, Schedulers.parallel())
+        victim.payloadLogger = NOPCommunicationLogger()
 
         val result = victim.execute(ReadCurrentVoltageFunctionArgs(driverMock, 1, registerId)).block()
         Assertions.assertThat(result).isEqualTo(233.1f)
@@ -56,6 +58,7 @@ internal class ReadCurrentVoltageFunctionTest {
         every { driverMock.communicateAsync(any()) } returns Flux.just(
             0x1, 0x3, 0x4, 0x09, 0x1b, 0x00, 0x00, 0xff.toByte(), 0xff.toByte())
         val victim = ReadCurrentVoltageFunction(crcService, Schedulers.parallel())
+        victim.payloadLogger = NOPCommunicationLogger()
 
         assertThrows(CrcCheckError::class.java) {
             try {

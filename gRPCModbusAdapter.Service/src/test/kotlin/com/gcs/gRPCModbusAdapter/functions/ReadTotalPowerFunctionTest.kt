@@ -3,6 +3,7 @@ package com.gcs.gRPCModbusAdapter.functions
 import com.gcs.gRPCModbusAdapter.functions.args.ReadTotalPowerFunctionArgs
 import com.gcs.gRPCModbusAdapter.functions.args.RegisterId
 import com.gcs.gRPCModbusAdapter.functions.utils.MessageCRCServiceImpl
+import com.gcs.gRPCModbusAdapter.functions.utils.NOPCommunicationLogger
 import com.gcs.gRPCModbusAdapter.serialPort.SerialPortDriver
 import io.mockk.confirmVerified
 import io.mockk.every
@@ -19,6 +20,7 @@ internal class ReadTotalPowerFunctionTest {
     @Test
     fun `function returns expected name`() {
         val victim = ReadTotalPowerFunction(mockk<MessageCRCServiceImpl>(), Schedulers.immediate())
+        victim.payloadLogger = NOPCommunicationLogger()
 
         Assertions.assertThat(victim.functionName).isEqualTo("ReadTotalPower")
     }
@@ -32,6 +34,7 @@ internal class ReadTotalPowerFunctionTest {
         every { driverMock.communicateAsync(any()) } returns Flux.just(
             0x1, 0x3, 0x4, 0x00, 0x1, 0x00, 0xff.toByte(), 0xff.toByte(), 0xff.toByte())
         val victim = ReadTotalPowerFunction(crcService, Schedulers.parallel())
+        victim.payloadLogger = NOPCommunicationLogger()
 
         val result = victim.execute(ReadTotalPowerFunctionArgs(driverMock, 1, RegisterId.TOTAL_POWER)).block()
         Assertions.assertThat(result).isEqualTo(657.91f)
@@ -50,6 +53,7 @@ internal class ReadTotalPowerFunctionTest {
         every { driverMock.communicateAsync(any()) } returns Flux.just(
             0x1, 0x3, 0x4, 0x00, 0x1, 0x00, 0xff.toByte(), 0xff.toByte(), 0xff.toByte())
         val victim = ReadTotalPowerFunction(crcService, Schedulers.parallel())
+        victim.payloadLogger = NOPCommunicationLogger()
 
         assertThrows(CrcCheckError::class.java) {
             try {
