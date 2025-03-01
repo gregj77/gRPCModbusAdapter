@@ -83,7 +83,7 @@ class Setup {
 
     @Bean
     fun scheduler(): Scheduler {
-        return Schedulers.boundedElastic()
+        return Schedulers.single()
     }
 
     @PreDestroy

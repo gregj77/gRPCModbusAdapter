@@ -51,7 +51,7 @@ abstract class ModbusFunctionBase<in TArgs : FunctionArgs, TResult>(
         }
             .flatMap { extractOrThrow(id, args, it) }
             .retryWhen(createRetryStrategy(id))
-            .timeout(Duration.ofSeconds(5), scheduler)
+            .timeout(Duration.ofSeconds(5))
             .doFinally {signalType ->
                 val shouldLog  = when (signalType) {
                     SignalType.ON_COMPLETE -> true
@@ -93,7 +93,7 @@ abstract class ModbusFunctionBase<in TArgs : FunctionArgs, TResult>(
 
                 if (retries < 2 && failure is CheckError) {
                     logger.debug { "[$id] retrying request due to '${failure.message}' error" }
-                    Mono.delay(Duration.ofMillis(100L), scheduler).thenReturn(retrySignal)
+                    Mono.delay(Duration.ofMillis(100L)).thenReturn(retrySignal)
                 } else{
                     logger.warn { "[$id] retry quota exceeded - aborting call" }
                     Mono.error(Exceptions.retryExhausted("retries exhausted", failure))
