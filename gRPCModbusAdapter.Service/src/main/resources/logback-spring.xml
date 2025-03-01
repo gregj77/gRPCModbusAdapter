@@ -10,9 +10,9 @@
     </appender>
 
     <appender name="FILE_APPENDER" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>/var/log/rs485.log</file>
+        <file>/var/log/app/rs485.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>/var/log/rs485-%d{yyyy-MM-dd}.log</fileNamePattern>
+            <fileNamePattern>/var/log/app/rs485-%d{yyyy-MM-dd}.log</fileNamePattern>
             <maxHistory>7</maxHistory>
         </rollingPolicy>
 
@@ -32,12 +32,12 @@
     </logger>
 
     <!-- Logger for com.gcs package (logs to console) -->
-    <logger name="com.gcs" level="INFO">
+    <logger name="com.gcs" level="${logging.level.com.gcs:DEBUG}">
         <appender-ref ref="CONSOLE" />
     </logger>
 
     <!-- Root logger (logs to console) -->
-    <root level="INFO">
+    <root level="${logging.level.root:INFO}">
         <appender-ref ref="CONSOLE" />
     </root>
 </configuration>
