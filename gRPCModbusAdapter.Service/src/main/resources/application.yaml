@@ -12,7 +12,7 @@ ports:
   entries: []
 devices:
   entries: []
+
 logging:
-  level:
-    root: INFO
-    com.gcs: INFO
+  config: classpath:logback-spring.xml
+
