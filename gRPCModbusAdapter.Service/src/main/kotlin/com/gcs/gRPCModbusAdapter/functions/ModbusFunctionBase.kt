@@ -15,7 +15,9 @@ import reactor.util.retry.Retry
 import reactor.util.retry.Retry.RetrySignal
 import java.time.Duration
 import java.time.Instant
+import java.util.Objects
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 
 
 interface ModbusFunction {
@@ -40,6 +42,7 @@ abstract class ModbusFunctionBase<in TArgs : FunctionArgs, TResult>(
         logger.debug { "[$id] message for ${args.deviceId} to query ${args.registerId} - calculated ${request.size} bytes" }
         val response = ByteArray(responseMessageSize)
         val start = Instant.now().toEpochMilli()
+        val readValue = AtomicReference<Any>()
 
         return Mono.defer {
             args.driver
@@ -49,24 +52,27 @@ abstract class ModbusFunctionBase<in TArgs : FunctionArgs, TResult>(
                 .collect({ response }, { buffer, valueAndIndex -> buffer[valueAndIndex.t1.toInt()] = valueAndIndex.t2 })
                 .doOnNext {payloadLogger.logCommunication(request, it) }
         }
-            .flatMap { extractOrThrow(id, args, it) }
+            .flatMap { extractOrThrow(id, args, it, readValue) }
             .retryWhen(createRetryStrategy(id))
             .timeout(Duration.ofSeconds(5))
             .doFinally {signalType ->
+                var responsePayload: String = ""
                 val shouldLog  = when (signalType) {
-                    SignalType.ON_COMPLETE -> true
                     SignalType.ON_ERROR -> true
-                    SignalType.CANCEL -> true
+                    SignalType.ON_COMPLETE, SignalType.CANCEL -> {
+                        responsePayload = " (${readValue.get()})"
+                        true
+                    }
                     else -> false
                 }
                 if (shouldLog) {
                     val stop = Instant.now().toEpochMilli()
-                    logger.info { "[$id] ${args.deviceId}.${args.registerId} function $functionName - completed with $signalType after ${stop - start} ms" }
+                    logger.info { "[$id] ${args.deviceId}.${args.registerId} function $functionName - completed with $signalType$responsePayload after ${stop - start} ms" }
                 }
             }
     }
 
-    private fun extractOrThrow(id: Int, args: TArgs, response: ByteArray): Mono<TResult> {
+    private fun extractOrThrow(id: Int, args: TArgs, response: ByteArray, readValue: AtomicReference<Any>): Mono<TResult> {
         if (crcService.checkCrc(response)) {
 
             if (!args.responseDeviceMatchesRequest(response)) {
@@ -76,6 +82,7 @@ abstract class ModbusFunctionBase<in TArgs : FunctionArgs, TResult>(
 
             val result = extractValue(response)
             logger.debug { "[$id] got valid response from ${args.deviceId} query ${args.registerId} -> [${response.size} bytes]: $result, [${response.toHexString()}]" }
+            readValue.set(result)
             return Mono.just(result)
         }
 

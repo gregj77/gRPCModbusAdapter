@@ -1,7 +1,6 @@
 <configuration>
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
 
-    <!-- Console Appender (logs to console) -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>${CONSOLE_LOG_PATTERN}</pattern>
@@ -21,22 +20,18 @@
         </encoder>
     </appender>
 
-    <!-- Async Appender (wraps file appender for non-blocking logging) -->
     <appender name="ASYNC_FILE_APPENDER" class="ch.qos.logback.classic.AsyncAppender">
         <appender-ref ref="FILE_APPENDER" />
     </appender>
 
-    <!-- Logger for CommunicationLoggerImpl (logs only to a file) -->
     <logger name="com.gcs.gRPCModbusAdapter.functions.utils.CommunicationLoggerImpl" level="TRACE" additivity="false">
         <appender-ref ref="ASYNC_FILE_APPENDER" />
     </logger>
 
-    <!-- Logger for com.gcs package (logs to console) -->
     <logger name="com.gcs" level="${logging.level.com.gcs:DEBUG}"  additivity="false">
         <appender-ref ref="CONSOLE" />
     </logger>
 
-    <!-- Root logger (logs to console) -->
     <root level="${logging.level.root:INFO}">
         <appender-ref ref="CONSOLE" />
     </root>
