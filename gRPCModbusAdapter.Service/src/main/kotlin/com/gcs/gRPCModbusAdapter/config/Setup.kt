@@ -11,8 +11,6 @@ import org.springframework.context.annotation.Configuration
 import reactor.core.scheduler.Scheduler
 import reactor.core.scheduler.Schedulers
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 import javax.annotation.PreDestroy
 
 @Configuration
