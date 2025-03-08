@@ -9,7 +9,6 @@ import com.google.common.util.concurrent.Monitor
 import io.micrometer.core.instrument.Counter
 import mu.KotlinLogging
 import org.springframework.boot.actuate.health.Health
-import org.springframework.boot.actuate.health.HealthIndicator
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.FluxSink
@@ -19,10 +18,8 @@ import reactor.core.scheduler.Scheduler
 import reactor.util.retry.Retry
 import java.time.Duration
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
-import kotlin.reflect.jvm.internal.impl.load.kotlin.JvmType
 import kotlin.system.measureTimeMillis
 
 
