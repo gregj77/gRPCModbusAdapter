@@ -19,3 +19,10 @@ logging:
     root: INFO
     com.gcs: INFO
 
+server:
+  jetty:
+    threads:
+      max: 5
+      min: 1
+      idle-timeout: 60000
+

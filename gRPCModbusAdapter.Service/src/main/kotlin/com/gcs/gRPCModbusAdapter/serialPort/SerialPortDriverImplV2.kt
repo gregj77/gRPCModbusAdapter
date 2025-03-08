@@ -55,7 +55,7 @@ class SerialPortDriverImplV2(
                 logger.debug { "registering data listener..." }
                 with(serialPort) {
                     setComPortParameters(cfg.baudRate, cfg.dataBits, cfg.stopBits.value, cfg.parity.value)
-                    setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING, 250, 0)
+                    setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING, READ_WAIT_TIMEOUT, 0)
                     if (!openPort()) {
                         logger.warn { "openPort returned false" }
                         observer.error(Exception("openPort returned false"))
@@ -124,7 +124,7 @@ class SerialPortDriverImplV2(
             if (result != Sinks.EmitResult.OK) {
                 it.error(Exception("$name - failed to schedule command ${cmd.first} -> ${result.name}"))
             }
-        }.delaySubscription(Duration.ofMillis(50L), scheduler)
+        }.delaySubscription(Duration.ofMillis(10L), scheduler)
     }
 
     override fun dispose() {
@@ -158,6 +158,8 @@ class SerialPortDriverImplV2(
             }
 
             val input = port.inputStream
+            var retriesLeft = MAX_RETRIES_ON_TIMEOUT
+            var totalBytes = 0
 
             val timeTaken = measureTimeMillis {
                 try {
@@ -167,6 +169,7 @@ class SerialPortDriverImplV2(
                             val data = input.read()
                             if (data != -1) {
                                 ++readBytes
+                                ++totalBytes
                                 readBytesCounter.increment()
                                 responseOutStream.next(data.toByte())
                             } else {
@@ -174,13 +177,19 @@ class SerialPortDriverImplV2(
                                 break
                             }
                         } catch (e: SerialPortTimeoutException) {
-                            logger.debug { "$name - timeout while waiting for response of $cmdId; read $readBytes so far..." }
+                            if (--retriesLeft >= 0) {
+                                logger.debug { "$name - timeout while waiting for response of $cmdId; read $readBytes bytes so far..." }
+                            } else {
+                                logger.warn { "$name - reached $MAX_RETRIES_ON_TIMEOUT retires for $cmdId; read total $totalBytes bytes" }
+                                throw e
+                            }
                         }
                     }
                     logger.debug { "$name - caller for $cmdId cancelled data collection after collecting $readBytes bytes" }
                 } catch (e: Exception) {
                     logger.warn { "$name - command $id failed to execute with ${e.message} <${e.javaClass.name}>" }
                     responseOutStream.error(e)
+                    return
                 }
             }
             logger.debug { "$name command $cmdId complete after $timeTaken millis" }
@@ -207,5 +216,10 @@ class SerialPortDriverImplV2(
         } else {
             Health.outOfService().withDetail("lastError", lastError).build()
         }
+    }
+
+    companion object {
+        const val MAX_RETRIES_ON_TIMEOUT = 4
+        const val READ_WAIT_TIMEOUT = 250
     }
 }

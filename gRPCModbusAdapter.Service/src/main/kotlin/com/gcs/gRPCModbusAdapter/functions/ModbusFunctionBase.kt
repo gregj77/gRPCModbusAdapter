@@ -1,5 +1,6 @@
 package com.gcs.gRPCModbusAdapter.functions
 
+import com.fazecast.jSerialComm.SerialPortTimeoutException
 import com.gcs.gRPCModbusAdapter.functions.args.FunctionArgs
 import com.gcs.gRPCModbusAdapter.functions.utils.CommunicationLogger
 import com.gcs.gRPCModbusAdapter.functions.utils.MessageCRCService
@@ -53,7 +54,7 @@ abstract class ModbusFunctionBase<in TArgs : FunctionArgs, TResult>(
         }
             .flatMap { extractOrThrow(id, args, it, readValue) }
             .retryWhen(createRetryStrategy(id))
-            .timeout(Duration.ofSeconds(5))
+            .timeout(Duration.ofSeconds(5), scheduler)
             .doFinally {signalType ->
                 var responsePayload: String = ""
                 val shouldLog  = when (signalType) {
@@ -97,7 +98,7 @@ abstract class ModbusFunctionBase<in TArgs : FunctionArgs, TResult>(
                 val retries = retrySignal.totalRetries()
                 val failure = retrySignal.failure()
 
-                if (retries < 2 && failure is CheckError) {
+                if (retries < 2 && (failure is CheckError || failure is SerialPortTimeoutException)) {
                     logger.debug { "[$id] retrying request due to '${failure.message}' error" }
                     Mono.delay(Duration.ofMillis(100L)).thenReturn(retrySignal)
                 } else{
