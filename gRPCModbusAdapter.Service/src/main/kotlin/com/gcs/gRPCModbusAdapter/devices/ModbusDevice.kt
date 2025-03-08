@@ -9,8 +9,6 @@ import mu.KotlinLogging
 import org.springframework.boot.actuate.health.Health
 import org.springframework.boot.actuate.health.ReactiveHealthIndicator
 import reactor.core.publisher.Mono
-import reactor.core.scheduler.Scheduler
-import java.time.Duration
 
 interface ModbusDevice {
     val name: String
