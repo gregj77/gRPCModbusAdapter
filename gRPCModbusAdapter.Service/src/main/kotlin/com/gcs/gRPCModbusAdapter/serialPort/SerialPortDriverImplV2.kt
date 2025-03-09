@@ -5,10 +5,10 @@ import com.fazecast.jSerialComm.SerialPortIOException
 import com.fazecast.jSerialComm.SerialPortInvalidPortException
 import com.fazecast.jSerialComm.SerialPortTimeoutException
 import com.gcs.gRPCModbusAdapter.config.SerialPortConfig
+import com.google.common.util.concurrent.Monitor
 import io.micrometer.core.instrument.Counter
 import mu.KotlinLogging
 import org.springframework.boot.actuate.health.Health
-import org.springframework.boot.actuate.health.HealthIndicator
 import reactor.core.Disposable
 import reactor.core.publisher.Flux
 import reactor.core.publisher.FluxSink
@@ -18,7 +18,6 @@ import reactor.core.scheduler.Scheduler
 import reactor.util.retry.Retry
 import java.time.Duration
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.system.measureTimeMillis
@@ -38,6 +37,7 @@ class SerialPortDriverImplV2(
 
     private var lastError: String? = null
     private val subscription: Disposable
+    private val lock: Monitor = Monitor()
 
     override val name: String
         get() = cfg.name
@@ -55,7 +55,7 @@ class SerialPortDriverImplV2(
                 logger.debug { "registering data listener..." }
                 with(serialPort) {
                     setComPortParameters(cfg.baudRate, cfg.dataBits, cfg.stopBits.value, cfg.parity.value)
-                    setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING, 250, 0)
+                    setComPortTimeouts(SerialPort.TIMEOUT_READ_SEMI_BLOCKING, READ_WAIT_TIMEOUT, 0)
                     if (!openPort()) {
                         logger.warn { "openPort returned false" }
                         observer.error(Exception("openPort returned false"))
@@ -118,13 +118,13 @@ class SerialPortDriverImplV2(
             return Flux.error(IllegalStateException("$name - failed to schedule command $cmdId - port not initialized!"))
         }
 
-        return Flux.create {
+        return Flux.create<Byte?> {
             val cmd = Triple(cmdId, data, it)
             val result = requestsStream.tryEmitNext(cmd)
             if (result != Sinks.EmitResult.OK) {
                 it.error(Exception("$name - failed to schedule command ${cmd.first} -> ${result.name}"))
             }
-        }
+        }.delaySubscription(Duration.ofMillis(10L), scheduler)
     }
 
     override fun dispose() {
@@ -140,31 +140,36 @@ class SerialPortDriverImplV2(
         responseOutStream: FluxSink<Byte>,
         processingComplete: SynchronousSink<Unit>
     ) {
+        lock.enterInterruptibly()
 
-        logger.debug { "$name - about to execute command $id... [${bytes.size} bytes]"  }
-        port.flushIOBuffers()
+        try {
+            logger.debug { "$name - about to execute command $id... [${bytes.size} bytes]" }
 
-        val writtenBytes = port.writeBytes(bytes, bytes.size)
-        writtenBytesCounter.increment(writtenBytes.toDouble())
+            port.flushIOBuffers()
 
-        if (writtenBytes != bytes.size) {
-            val msg = "$name - could not write all required bytes for command $cmdId"
-            logger.warn { msg }
-            responseOutStream.error(Exception(msg))
-            processingComplete.next(Unit)
-            return
-        }
+            val writtenBytes = port.writeBytes(bytes, bytes.size)
+            writtenBytesCounter.increment(writtenBytes.toDouble())
 
-        val timeTaken = measureTimeMillis {
-            try {
+            if (writtenBytes != bytes.size) {
+                val msg = "$name - could not write all required bytes for command $cmdId"
+                logger.warn { msg }
+                responseOutStream.error(Exception(msg))
+                return
+            }
 
-                port.inputStream.use {
+            val input = port.inputStream
+            var retriesLeft = MAX_RETRIES_ON_TIMEOUT
+            var totalBytes = 0
+
+            val timeTaken = measureTimeMillis {
+                try {
                     var readBytes = 0
                     while (!responseOutStream.isCancelled) {
                         try {
-                            val data = it.read()
+                            val data = input.read()
                             if (data != -1) {
                                 ++readBytes
+                                ++totalBytes
                                 readBytesCounter.increment()
                                 responseOutStream.next(data.toByte())
                             } else {
@@ -172,19 +177,26 @@ class SerialPortDriverImplV2(
                                 break
                             }
                         } catch (e: SerialPortTimeoutException) {
-                            logger.debug { "$name - timeout while waiting for response of $cmdId; read $readBytes so far..." }
+                            if (--retriesLeft >= 0) {
+                                logger.debug { "$name - timeout while waiting for response of $cmdId; read $readBytes bytes so far..." }
+                            } else {
+                                logger.warn { "$name - reached $MAX_RETRIES_ON_TIMEOUT retires for $cmdId; read total $totalBytes bytes" }
+                                throw e
+                            }
                         }
                     }
                     logger.debug { "$name - caller for $cmdId cancelled data collection after collecting $readBytes bytes" }
+                } catch (e: Exception) {
+                    logger.warn { "$name - command $id failed to execute with ${e.message} <${e.javaClass.name}>" }
+                    responseOutStream.error(e)
+                    return
                 }
-            } catch (e: Exception) {
-                logger.warn { "$name - command $id failed to execute with ${e.message} <${e.javaClass.name}>" }
-                responseOutStream.error(e)
-            } finally {
-                processingComplete.next(Unit)
             }
+            logger.debug { "$name command $cmdId complete after $timeTaken millis" }
+        } finally {
+            lock.leave()
+            processingComplete.next(Unit)
         }
-        logger.debug { "$name command $cmdId complete after $timeTaken millis" }
     }
 
     private fun onCleanup(commandHandlerToken: Disposable, serialPort: SerialPort) {
@@ -204,5 +216,10 @@ class SerialPortDriverImplV2(
         } else {
             Health.outOfService().withDetail("lastError", lastError).build()
         }
+    }
+
+    companion object {
+        const val MAX_RETRIES_ON_TIMEOUT = 4
+        const val READ_WAIT_TIMEOUT = 250
     }
 }
