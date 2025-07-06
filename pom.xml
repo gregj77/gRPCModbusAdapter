@@ -29,7 +29,7 @@
         <kotlin.logging.version>3.0.5</kotlin.logging.version>
         <nrjavaserial.version>5.2.1</nrjavaserial.version>
         <rxkotlin.version>3.0.1</rxkotlin.version>
-        <mockk.version>1.13.10</mockk.version>
+        <mockk.version>1.12.1</mockk.version>
         <protobuf.version>4.28.2</protobuf.version>
         <protobuf-plugin.version>0.6.1</protobuf-plugin.version>
         <grpc.version>1.63.0</grpc.version>
