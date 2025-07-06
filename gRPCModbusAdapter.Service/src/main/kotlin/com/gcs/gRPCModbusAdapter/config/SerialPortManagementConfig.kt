@@ -20,7 +20,7 @@ import reactor.core.scheduler.Scheduler
 import java.util.function.Function
 import java.util.function.Supplier
 import java.util.stream.Collectors
-import javax.annotation.PreDestroy
+import jakarta.annotation.PreDestroy
 
 @Configuration
 class SerialPortManagementConfig(
