@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.web.context.support.GenericWebApplicationContext
 import java.util.function.Supplier
-import javax.validation.ValidationException
+import jakarta.validation.ValidationException
 
 @Configuration
 class DeviceManagementConfig(

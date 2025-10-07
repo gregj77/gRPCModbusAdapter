@@ -11,7 +11,7 @@ import org.springframework.context.annotation.Configuration
 import reactor.core.scheduler.Scheduler
 import reactor.core.scheduler.Schedulers
 import java.util.concurrent.ConcurrentHashMap
-import javax.annotation.PreDestroy
+import jakarta.annotation.PreDestroy
 
 @Configuration
 class Setup {

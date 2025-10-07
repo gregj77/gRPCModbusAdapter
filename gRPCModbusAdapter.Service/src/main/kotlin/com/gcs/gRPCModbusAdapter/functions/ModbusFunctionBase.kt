@@ -26,7 +26,7 @@ interface ModbusFunction {
 
 val executionId = AtomicInteger(0)
 
-abstract class ModbusFunctionBase<in TArgs : FunctionArgs, TResult>(
+abstract class ModbusFunctionBase<in TArgs : FunctionArgs, TResult : Any>(
     private val crcService: MessageCRCService,
     private val responseMessageSize: Int,
     private val logger: KLogger,
