@@ -29,7 +29,7 @@ class SerialPortManagementConfig(
     portCreator: SerialPortCreator,
     registry: MeterRegistry) {
 
-    private val ports: Map<String, SerialPortDriver>
+    private final val ports: Map<String, SerialPortDriver>
 
     init {
         ports = configuration

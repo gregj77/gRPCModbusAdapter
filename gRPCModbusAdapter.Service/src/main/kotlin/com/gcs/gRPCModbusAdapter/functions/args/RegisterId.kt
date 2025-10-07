@@ -9,4 +9,7 @@ enum class RegisterId(val value: Byte) {
     CURRENT_VOLTAGE_PHASE1(0x80.toByte()),
     CURRENT_VOLTAGE_PHASE2(0x81.toByte()),
     CURRENT_VOLTAGE_PHASE3(0x82.toByte()),
+    CURRENT_AMPERAGE_PHASE1(0x83.toByte()),
+    CURRENT_AMPERAGE_PHASE2(0x84.toByte()),
+    CURRENT_AMPERAGE_PHASE3(0x85.toByte()),
 }
