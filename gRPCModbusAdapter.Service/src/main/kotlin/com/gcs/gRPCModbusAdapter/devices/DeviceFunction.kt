@@ -1,13 +1,7 @@
 package com.gcs.gRPCModbusAdapter.devices
 
-import com.gcs.gRPCModbusAdapter.functions.CheckStateFunction
-import com.gcs.gRPCModbusAdapter.functions.ReadCurrentPowerFunction
-import com.gcs.gRPCModbusAdapter.functions.ReadCurrentVoltageFunction
-import com.gcs.gRPCModbusAdapter.functions.ReadTotalPowerFunction
-import com.gcs.gRPCModbusAdapter.functions.args.ReadCurrentPowerFunctionArgs
-import com.gcs.gRPCModbusAdapter.functions.args.ReadCurrentVoltageFunctionArgs
-import com.gcs.gRPCModbusAdapter.functions.args.ReadTotalPowerFunctionArgs
-import com.gcs.gRPCModbusAdapter.functions.args.RegisterId
+import com.gcs.gRPCModbusAdapter.functions.*
+import com.gcs.gRPCModbusAdapter.functions.args.*
 import reactor.core.publisher.Mono
 
 enum class DeviceFunction(val functionName: String, val registerId: RegisterId, val unit: String, val functionServiceName: String) {
@@ -19,6 +13,9 @@ enum class DeviceFunction(val functionName: String, val registerId: RegisterId, 
     CURRENT_VOLTAGE_PHASE1("currentVoltagePhase1", RegisterId.CURRENT_VOLTAGE_PHASE1, "V", ReadCurrentVoltageFunction.FunctionName),
     CURRENT_VOLTAGE_PHASE2("currentVoltagePhase2", RegisterId.CURRENT_VOLTAGE_PHASE2, "V", ReadCurrentVoltageFunction.FunctionName),
     CURRENT_VOLTAGE_PHASE3("currentVoltagePhase3", RegisterId.CURRENT_VOLTAGE_PHASE3, "V", ReadCurrentVoltageFunction.FunctionName),
+    CURRENT_AMPERAGE_PHASE1("currentAmperagePhase1", RegisterId.CURRENT_AMPERAGE_PHASE1, "A", ReadCurrentAmperageFunction.FunctionName),
+    CURRENT_AMPERAGE_PHASE2("currentAmperagePhase2", RegisterId.CURRENT_AMPERAGE_PHASE2, "A", ReadCurrentAmperageFunction.FunctionName),
+    CURRENT_AMPERAGE_PHASE3("currentAmperagePhase3", RegisterId.CURRENT_AMPERAGE_PHASE3, "A", ReadCurrentAmperageFunction.FunctionName),
 }
 
 private fun queryTotalPower(sender: ModbusDeviceImpl) : Mono<DeviceResponse> {
@@ -56,6 +53,13 @@ private fun queryCurrentVoltage(sender: ModbusDeviceImpl, registerId: RegisterId
         .map { DeviceResponse(sender.name, deviceFunction, it.toString(), it.javaClass.name, deviceFunction.unit) }
 }
 
+private fun queryCurrentAmperage(sender: ModbusDeviceImpl, registerId: RegisterId, deviceFunction: DeviceFunction): Mono<DeviceResponse> {
+    val function = sender.functionServices[ReadCurrentAmperageFunction.FunctionName] as ReadCurrentAmperageFunction
+    return function
+        .execute(ReadCurrentAmperageFunctionArgs(sender.port, sender.deviceId, registerId))
+        .map { DeviceResponse(sender.name, deviceFunction, it.toString(), it.javaClass.name, deviceFunction.unit) }
+}
+
 internal val NativeFunctionQuery = mapOf<DeviceFunction, (ModbusDeviceImpl) -> Mono<DeviceResponse>>(
     DeviceFunction.TOTAL_POWER to ::queryTotalPower,
     DeviceFunction.EXPORT_POWER to ::queryExportedPower,
@@ -64,4 +68,7 @@ internal val NativeFunctionQuery = mapOf<DeviceFunction, (ModbusDeviceImpl) -> M
     DeviceFunction.CURRENT_VOLTAGE_PHASE1 to { queryCurrentVoltage(it, RegisterId.CURRENT_VOLTAGE_PHASE1, DeviceFunction.CURRENT_VOLTAGE_PHASE1) },
     DeviceFunction.CURRENT_VOLTAGE_PHASE2 to { queryCurrentVoltage(it, RegisterId.CURRENT_VOLTAGE_PHASE2, DeviceFunction.CURRENT_VOLTAGE_PHASE2) },
     DeviceFunction.CURRENT_VOLTAGE_PHASE3 to { queryCurrentVoltage(it, RegisterId.CURRENT_VOLTAGE_PHASE3, DeviceFunction.CURRENT_VOLTAGE_PHASE3) },
+    DeviceFunction.CURRENT_AMPERAGE_PHASE1 to { queryCurrentAmperage(it, RegisterId.CURRENT_AMPERAGE_PHASE1, DeviceFunction.CURRENT_AMPERAGE_PHASE1) },
+    DeviceFunction.CURRENT_AMPERAGE_PHASE2 to { queryCurrentAmperage(it, RegisterId.CURRENT_AMPERAGE_PHASE2, DeviceFunction.CURRENT_AMPERAGE_PHASE1) },
+    DeviceFunction.CURRENT_AMPERAGE_PHASE3 to { queryCurrentAmperage(it, RegisterId.CURRENT_AMPERAGE_PHASE3, DeviceFunction.CURRENT_AMPERAGE_PHASE1) },
 )
