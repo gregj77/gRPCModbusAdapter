@@ -69,6 +69,6 @@ internal val NativeFunctionQuery = mapOf<DeviceFunction, (ModbusDeviceImpl) -> M
     DeviceFunction.CURRENT_VOLTAGE_PHASE2 to { queryCurrentVoltage(it, RegisterId.CURRENT_VOLTAGE_PHASE2, DeviceFunction.CURRENT_VOLTAGE_PHASE2) },
     DeviceFunction.CURRENT_VOLTAGE_PHASE3 to { queryCurrentVoltage(it, RegisterId.CURRENT_VOLTAGE_PHASE3, DeviceFunction.CURRENT_VOLTAGE_PHASE3) },
     DeviceFunction.CURRENT_AMPERAGE_PHASE1 to { queryCurrentAmperage(it, RegisterId.CURRENT_AMPERAGE_PHASE1, DeviceFunction.CURRENT_AMPERAGE_PHASE1) },
-    DeviceFunction.CURRENT_AMPERAGE_PHASE2 to { queryCurrentAmperage(it, RegisterId.CURRENT_AMPERAGE_PHASE2, DeviceFunction.CURRENT_AMPERAGE_PHASE1) },
-    DeviceFunction.CURRENT_AMPERAGE_PHASE3 to { queryCurrentAmperage(it, RegisterId.CURRENT_AMPERAGE_PHASE3, DeviceFunction.CURRENT_AMPERAGE_PHASE1) },
+    DeviceFunction.CURRENT_AMPERAGE_PHASE2 to { queryCurrentAmperage(it, RegisterId.CURRENT_AMPERAGE_PHASE2, DeviceFunction.CURRENT_AMPERAGE_PHASE2) },
+    DeviceFunction.CURRENT_AMPERAGE_PHASE3 to { queryCurrentAmperage(it, RegisterId.CURRENT_AMPERAGE_PHASE3, DeviceFunction.CURRENT_AMPERAGE_PHASE3) },
 )
