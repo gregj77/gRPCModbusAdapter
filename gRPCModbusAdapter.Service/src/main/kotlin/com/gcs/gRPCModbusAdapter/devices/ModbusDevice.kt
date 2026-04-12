@@ -15,16 +15,20 @@ interface ModbusDevice {
     val commandsProcessed: Int
 
     fun queryDevice(function: DeviceFunction): Mono<DeviceResponse>
+    fun commandDevice(function: DeviceCommand, commandData: Any): Mono<Boolean>
     fun supportsFunction(functionName: String): Boolean
+    fun supportsCommand(functionName: String): Boolean
 }
 
 data class DeviceResponse(val deviceName: String, val function: DeviceFunction, val data: String, val dataType: String, val unit: String)
+data class CommandResponse(val deviceName: String, val command: DeviceCommand, val success: Boolean, val message: String?)
 
 class ModbusDeviceImpl(
     val deviceId: Byte,
     internal val port: SerialPortDriver,
     override val name: String,
     private val functions: Set<DeviceFunction>,
+    private val commands: Set<DeviceCommand>,
     internal val functionServices: Map<String, ModbusFunction>,
     private val callCounter: Counter,
 ) : ModbusDevice, ReactiveHealthIndicator {
@@ -67,9 +71,37 @@ class ModbusDeviceImpl(
             .doOnEach { if (it.isOnNext or it.isOnError) callCounter.increment() }
     }
 
+    override fun commandDevice(command: DeviceCommand, commandData: Any): Mono<Boolean> {
+        if (!commands.contains(command)) {
+            logger.warn { "Device $name doesn't support command $command" }
+            callCounter.increment()
+            return Mono.error(IllegalArgumentException("Function $command is not supported by $name"))
+        }
+
+        if (!NativeCommands.containsKey(command)) {
+            logger.warn { "CommandToHandler mapping doesn't contain entry for $command" }
+            callCounter.increment()
+            return Mono.error(IllegalStateException("Configuration issue - CommandToHandle doesn't contain $command mapping!"))
+        }
+
+        return NativeCommands[command]!!
+            .invoke(this, commandData)
+            .doOnEach { if (it.isOnNext or it.isOnError) callCounter.increment() }
+    }
+
+
     override fun supportsFunction(functionName: String): Boolean {
         return try {
             DeviceFunction.valueOf(functionName)
+            true
+        } catch (error: Exception) {
+            false
+        }
+    }
+
+    override fun supportsCommand(functionName: String): Boolean {
+        return try {
+            DeviceCommand.valueOf(functionName)
             true
         } catch (error: Exception) {
             false

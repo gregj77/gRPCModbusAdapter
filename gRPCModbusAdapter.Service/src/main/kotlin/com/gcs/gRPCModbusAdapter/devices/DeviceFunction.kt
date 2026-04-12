@@ -2,6 +2,8 @@ package com.gcs.gRPCModbusAdapter.devices
 
 import com.gcs.gRPCModbusAdapter.functions.*
 import com.gcs.gRPCModbusAdapter.functions.args.*
+import com.gcs.gRPCModbusAdapter.functions.watertank.RuleType
+import com.gcs.gRPCModbusAdapter.functions.watertank.toMask
 import reactor.core.publisher.Mono
 
 enum class DeviceFunction(val functionName: String, val registerId: RegisterId, val unit: String, val functionServiceName: String) {
@@ -16,6 +18,12 @@ enum class DeviceFunction(val functionName: String, val registerId: RegisterId, 
     CURRENT_AMPERAGE_PHASE1("currentAmperagePhase1", RegisterId.CURRENT_AMPERAGE_PHASE1, "A", ReadCurrentAmperageFunction.FunctionName),
     CURRENT_AMPERAGE_PHASE2("currentAmperagePhase2", RegisterId.CURRENT_AMPERAGE_PHASE2, "A", ReadCurrentAmperageFunction.FunctionName),
     CURRENT_AMPERAGE_PHASE3("currentAmperagePhase3", RegisterId.CURRENT_AMPERAGE_PHASE3, "A", ReadCurrentAmperageFunction.FunctionName),
+    WATER_TANK_COMBINED_STATUS("waterTankStatus", RegisterId.WATER_TANK_AGGREGATED_STATUS, "JSON", ReadWaterTankStatus.FunctionName),
+}
+
+enum class DeviceCommand(val commandName: String, val registerId: RegisterId, val functionServiceName: String) {
+    UPDATE_WATER_TANK_RULES("updateWaterTankRules", RegisterId.WATER_TANK_CMD_CONTROL, UpdateWaterTankRulesFunction.FunctionName),
+    NOTIFY_WATER_TANK_WITH_ENERGY_BALANCE("notifyWaterTankWithEnergyBalance", RegisterId.WATER_TANK_CMD_CONTROL, NotifyWaterTankWithEnergyBalanceFunction.FunctionName),
 }
 
 private fun queryTotalPower(sender: ModbusDeviceImpl) : Mono<DeviceResponse> {
@@ -60,6 +68,13 @@ private fun queryCurrentAmperage(sender: ModbusDeviceImpl, registerId: RegisterI
         .map { DeviceResponse(sender.name, deviceFunction, it.toString(), it.javaClass.name, deviceFunction.unit) }
 }
 
+private fun queryWaterTankStatus(sender: ModbusDeviceImpl): Mono<DeviceResponse> {
+    val function = sender.functionServices[ReadWaterTankStatus.FunctionName] as ReadWaterTankStatus
+    return function
+        .execute(ReadWaterTankFunctionArgs(sender.port, sender.deviceId))
+        .map { DeviceResponse(sender.name, DeviceFunction.WATER_TANK_COMBINED_STATUS, it.toString(), it.javaClass.name, DeviceFunction.WATER_TANK_COMBINED_STATUS.unit) }
+}
+
 internal val NativeFunctionQuery = mapOf<DeviceFunction, (ModbusDeviceImpl) -> Mono<DeviceResponse>>(
     DeviceFunction.TOTAL_POWER to ::queryTotalPower,
     DeviceFunction.EXPORT_POWER to ::queryExportedPower,
@@ -71,4 +86,22 @@ internal val NativeFunctionQuery = mapOf<DeviceFunction, (ModbusDeviceImpl) -> M
     DeviceFunction.CURRENT_AMPERAGE_PHASE1 to { queryCurrentAmperage(it, RegisterId.CURRENT_AMPERAGE_PHASE1, DeviceFunction.CURRENT_AMPERAGE_PHASE1) },
     DeviceFunction.CURRENT_AMPERAGE_PHASE2 to { queryCurrentAmperage(it, RegisterId.CURRENT_AMPERAGE_PHASE2, DeviceFunction.CURRENT_AMPERAGE_PHASE2) },
     DeviceFunction.CURRENT_AMPERAGE_PHASE3 to { queryCurrentAmperage(it, RegisterId.CURRENT_AMPERAGE_PHASE3, DeviceFunction.CURRENT_AMPERAGE_PHASE3) },
+    DeviceFunction.WATER_TANK_COMBINED_STATUS to ::queryWaterTankStatus,
 )
+
+
+internal val NativeCommands = mapOf<DeviceCommand, (ModbusDeviceImpl, Any) -> Mono<Boolean>>(
+    DeviceCommand.UPDATE_WATER_TANK_RULES to { device, data -> executeCmdSetWaterTankRules(device, data as List<String>) } ,
+    DeviceCommand.NOTIFY_WATER_TANK_WITH_ENERGY_BALANCE to { device, data -> executeCmdNotifyEnergyBalance(device, data as Int) },
+)
+
+private fun executeCmdNotifyEnergyBalance(sender: ModbusDeviceImpl, energyBalance: Int): Mono<Boolean> {
+    val function = sender.functionServices[DeviceCommand.NOTIFY_WATER_TANK_WITH_ENERGY_BALANCE.functionServiceName] as NotifyWaterTankWithEnergyBalanceFunction
+    return function.execute(WriteEnergyBalanceRuleArgs(sender.port, sender.deviceId, energyBalance))
+}
+
+private fun executeCmdSetWaterTankRules(sender: ModbusDeviceImpl, ruleNames: List<String>): Mono<Boolean> {
+    val function = sender.functionServices[DeviceCommand.UPDATE_WATER_TANK_RULES.functionServiceName] as UpdateWaterTankRulesFunction
+    val ruleNames = ruleNames.map { RuleType.valueOf(it) }
+    return function.execute(WriteWaterTankRulesArgs(sender.port, sender.deviceId, ruleNames))
+}

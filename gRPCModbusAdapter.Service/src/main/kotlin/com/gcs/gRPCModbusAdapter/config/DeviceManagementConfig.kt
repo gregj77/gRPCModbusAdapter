@@ -44,7 +44,7 @@ class DeviceManagementConfig(
                         "port", dc.serialPort
                     )
                     val callCounter = registry.counter("modbus_device_function_calls", tags)
-                    ModbusDeviceImpl(dc.id, port, dc.name, dc.deviceFunctions, serviceFunctionsByName, callCounter)
+                    ModbusDeviceImpl(dc.id, port, dc.name, dc.deviceFunctions, dc.deviceCommands, serviceFunctionsByName, callCounter)
                 }
                 .toList()
         } catch (err: NoSuchElementException) {

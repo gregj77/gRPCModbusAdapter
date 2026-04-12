@@ -1,5 +1,6 @@
 package com.gcs.gRPCModbusAdapter.config
 
+import com.gcs.gRPCModbusAdapter.devices.DeviceCommand
 import com.gcs.gRPCModbusAdapter.devices.DeviceFunction
 import com.gcs.gRPCModbusAdapter.validation.BaudRateConstraint
 import com.gcs.gRPCModbusAdapter.validation.DataBitsConstraint
@@ -63,5 +64,7 @@ data class DeviceConfig(
 
     @NotEmpty
     @Min(1)
-    val deviceFunctions: Set<DeviceFunction>
+    val deviceFunctions: Set<DeviceFunction>,
+
+    val deviceCommands: Set<DeviceCommand>
 )

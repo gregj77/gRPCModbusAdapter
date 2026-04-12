@@ -1,6 +1,6 @@
 ports:
   entries:
-    - name: COM4
+    - name: COM5
       baudRate: 9600
       dataBits: 8
       parity: NONE
@@ -9,9 +9,13 @@ devices:
   entries:
     - name: ProductionMeter
       id: 1
-      serialPort: COM4
+      serialPort: COM5
       deviceFunctions: [TOTAL_POWER, EXPORT_POWER, IMPORT_POWER, CURRENT_POWER]
     - name: MainMeter
       id: 2
-      serialPort: COM4
+      serialPort: COM5
       deviceFunctions: [TOTAL_POWER, EXPORT_POWER, IMPORT_POWER, CURRENT_POWER]
+    - name: WaterTank
+      id: 77
+      serialPort: COM5
+      deviceFunctions: [WATER_TANK_COMBINED_STATUS]

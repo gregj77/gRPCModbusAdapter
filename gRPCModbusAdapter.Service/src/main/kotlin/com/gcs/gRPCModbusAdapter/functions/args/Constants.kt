@@ -2,6 +2,8 @@ package com.gcs.gRPCModbusAdapter.functions.args
 
 internal object Constants {
     val READFUNCTION: Byte = 3
+    val READREGISTERS: Byte = 4
+    val WRITEREGISTERS: Byte = 16
 
     fun checkRegisterBelongsToTotalPower(registerId: RegisterId): RegisterId {
         return when (registerId) {
