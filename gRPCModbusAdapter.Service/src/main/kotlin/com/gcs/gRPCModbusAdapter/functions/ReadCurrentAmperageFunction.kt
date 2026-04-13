@@ -1,7 +1,6 @@
 package com.gcs.gRPCModbusAdapter.functions
 
 import com.gcs.gRPCModbusAdapter.functions.args.ReadCurrentAmperageFunctionArgs
-import com.gcs.gRPCModbusAdapter.functions.args.ReadCurrentVoltageFunctionArgs
 import com.gcs.gRPCModbusAdapter.functions.utils.MessageCRCServiceImpl
 import com.gcs.gRPCModbusAdapter.functions.utils.toShort
 import mu.KotlinLogging

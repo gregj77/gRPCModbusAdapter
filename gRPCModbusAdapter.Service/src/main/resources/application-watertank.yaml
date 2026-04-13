@@ -1,0 +1,14 @@
+ports:
+  entries:
+    - name: COM5
+      baudRate: 9600
+      dataBits: 8
+      parity: NONE
+      stopBits: STOPBITS_1
+devices:
+  entries:
+    - name: WaterTank
+      id: 77
+      serialPort: COM5
+      deviceFunctions: [WATER_TANK_COMBINED_STATUS]
+      deviceCommands: [UPDATE_WATER_TANK_RULES, NOTIFY_WATER_TANK_WITH_ENERGY_BALANCE]

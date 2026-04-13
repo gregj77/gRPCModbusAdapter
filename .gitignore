@@ -25,3 +25,5 @@ hs_err_pid*
 target/
 *.iml
 .mvn/
+
+bash_utils/protoc_install/*

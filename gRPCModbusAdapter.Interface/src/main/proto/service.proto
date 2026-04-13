@@ -5,16 +5,29 @@ package com.gcs.gRPCModbusAdapter.service;
 option java_multiple_files = true;
 option java_package = "com.gcs.gRPCModbusAdapter.service";
 option java_outer_classname = "MeterManagementService";
-
+option go_package = "github.com/gregj77/gRPCModbusAdapter/grpc2modbus-sdk-go;grpc2modbus";
 import "google/protobuf/timestamp.proto";
 
 service ModbusDeviceService {
-  rpc subscribeForDeviceData (Query) returns (stream Response) {
-  }
+  rpc subscribeForDeviceData (Query) returns (stream Response) { }
+  rpc writeDeviceCommand (Command) returns (CommandResponse) { }
 }
 
 message Query {
   repeated DeviceRequest request = 1;
+}
+
+message Command {
+  string deviceName = 1;
+  DeviceCommand command = 2;
+  oneof payload {
+    int32 intPayload = 3;
+    StringList items = 4;
+  }
+}
+
+message StringList {
+  repeated string item = 1;
 }
 
 message DeviceRequest {
@@ -34,7 +47,14 @@ enum DeviceFunction {
   CURRENT_AMPERAGE_PHASE1 = 8;
   CURRENT_AMPERAGE_PHASE2 = 9;
   CURRENT_AMPERAGE_PHASE3 = 10;
-};
+  WATER_TANK_COMBINED_STATUS = 11;
+}
+
+enum DeviceCommand {
+  UNKNOWN_COMMAND = 0;
+  UPDATE_WATER_TANK_RULES = 1;
+  NOTIFY_WATER_TANK_WITH_ENERGY_BALANCE = 2;
+}
 
 message Request {
   DeviceFunction functionName = 1;
@@ -48,4 +68,10 @@ message Response {
   string value = 4;
   string dataType = 5;
   string unit = 6;
+}
+
+message CommandResponse {
+  google.protobuf.Timestamp time = 1;
+  optional bool success = 2;
+  optional string message = 3;
 }

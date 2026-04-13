@@ -10,8 +10,8 @@ abstract class FunctionArgs(val driver: SerialPortDriver, val deviceId: Byte, va
         val request = ByteArray(requestMessageSize)
         request[0] = deviceId
         request[1] = 0xff.toByte() // to be filled by subclass - operation type - either read or write
-        request[2] = 0x0
-        request[3] = registerId.value //register second byte
+        request[2] = (registerId.value shr 8).toByte() //register first byte
+        request[3] = (registerId.value and 0xff).toByte() //register second byte
         request[4] = 0xff.toByte() // request data size high-byte - to be set by subclass
         request[5] = 0xff.toByte() // request data size low-byte - to be set by subclass
 

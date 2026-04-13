@@ -1,11 +1,13 @@
 package com.gcs.gRPCModbusAdapter.service
 
 import com.gcs.gRPCModbusAdapter.devices.DeviceFunction
+import com.gcs.gRPCModbusAdapter.devices.DeviceCommand
 import com.gcs.gRPCModbusAdapter.devices.DeviceResponse
 import com.gcs.gRPCModbusAdapter.devices.ModbusDevice
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
+import reactor.core.publisher.Mono
 import reactor.core.scheduler.Scheduler
 import java.time.Duration
 import java.util.concurrent.atomic.AtomicLong
@@ -60,6 +62,31 @@ class ModbusServiceAdapter(private val devices: Map<String, ModbusDevice>, priva
         logger.info { "request $deviceName.$functionName validated - will start producing data every $interval seconds" }
 
         return query
+    }
+
+    fun writeDeviceCommand(deviceName: String, commandName: String, commandData: Any): Mono<Boolean> {
+        logger.info { "validating request $deviceName.$commandName..." }
+        val device = if (devices.containsKey(deviceName)) {
+            devices[deviceName]!!
+        } else {
+            logger.warn { "trying to query non-existing device $deviceName" }
+            throw IllegalArgumentException("device = $deviceName")
+        }
+
+        val command = if (device.supportsCommand(commandName)) {
+            DeviceCommand.valueOf(commandName)
+        } else {
+            logger.warn { "device $deviceName doesn't support command $commandName!" }
+            throw IllegalArgumentException("command = $commandName")
+        }
+
+
+        logger.info { "request $deviceName.$commandName validated, executing..." }
+
+        return device.commandDevice(command, commandData)
+            .doOnSubscribe { logger.info { "subscription $deviceName.$commandName activated" }  }
+            .onErrorContinue { err, _ -> logger.warn { "got error $deviceName.$commandName - ${err.message} <${err.javaClass.name}>" } }
+            .doOnNext { logger.debug { "next item from $deviceName.$commandName = $it" } }
     }
 
     private fun introduceInitialDelay(): Long = delay.addAndGet(61L)

@@ -4,3 +4,22 @@ grpcurl --plaintext -d "{ \"request\": [{\"deviceName\": \"ProductionMeter\", \"
 
 
 grpcurl --plaintext -d "{ \"request\": [{\"deviceName\": \"MainMeter\", \"readRequests\": [{\"functionName\": \"IMPORT_POWER\", \"readIntervalInSeconds\": 30},{\"functionName\": \"EXPORT_POWER\", \"readIntervalInSeconds\": 30}]}]}" 192.168.0.7:9090  com.gcs.gRPCModbusAdapter.service.ModbusDeviceService.subscribeForDeviceData
+
+
+grpcurl --plaintext -d "{ \"request\": [{\"deviceName\": \"WaterTank\", \"readRequests\": [{\"functionName\": \"WATER_TANK_COMBINED_STATUS\", \"readIntervalInSeconds\": 30}]}]}" 192.168.0.7:9090  com.gcs.gRPCModbusAdapter.service.ModbusDeviceService.subscribeForDeviceData
+
+
+grpcurl --plaintext -d "{ \"deviceName\": \"WaterTank\", \"command\": \"NOTIFY_WATER_TANK_WITH_ENERGY_BALANCE\", \"intPayload\": 100 }" 192.168.0.7:9090  com.gcs.gRPCModbusAdapter.service.ModbusDeviceService.writeDeviceCommand
+
+grpcurl --plaintext -d "{
+  \"deviceName\": \"WaterTank\",
+  \"command\": \"UPDATE_WATER_TANK_RULES\",
+  \"items\": {
+    \"item\": [
+      \"MIN_TEMPERATURE\",
+      \"BOILER_CONTROL\",
+      \"HEAT_PUMP_CONTROL\",
+      \"HIGH_PRODUCTION_YIELD\"
+    ]
+  }
+}" 192.168.0.20:9090 com.gcs.gRPCModbusAdapter.service.ModbusDeviceService.writeDeviceCommand

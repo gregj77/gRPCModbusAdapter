@@ -67,7 +67,7 @@ abstract class ModbusFunctionBase<in TArgs : FunctionArgs, TResult : Any>(
                 }
                 if (shouldLog) {
                     val stop = Instant.now().toEpochMilli()
-                    logger.info { "[$id] ${args.deviceId}.${args.registerId} function $functionName - completed with $signalType$responsePayload after ${stop - start} ms" }
+                    logger.info { "[$id] ${args.deviceId}.${args.registerId} function $functionName - completed with '$signalType$responsePayload' after ${stop - start} ms" }
                 }
             }
     }
