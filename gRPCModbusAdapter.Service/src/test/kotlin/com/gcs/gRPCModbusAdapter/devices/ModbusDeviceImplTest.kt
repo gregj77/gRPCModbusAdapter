@@ -43,7 +43,7 @@ internal class ModbusDeviceImplTest {
             DeviceFunction.TOTAL_POWER.functionServiceName to function!!
         )
 
-        victim = ModbusDeviceImpl(deviceId, serialPort!!, deviceName, setOf(DeviceFunction.DEVICE_ID, DeviceFunction.TOTAL_POWER), functions!!, meterRegistry!!.counter("test"))
+        victim = ModbusDeviceImpl(deviceId, serialPort!!, deviceName, setOf(DeviceFunction.DEVICE_ID, DeviceFunction.TOTAL_POWER), setOf(), functions!!, meterRegistry!!.counter("test"))
     }
 
     @Test
