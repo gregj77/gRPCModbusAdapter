@@ -48,6 +48,17 @@ if [ -d "gRPCModbusAdapter.Interface/src/main/proto" ]; then
            --go_out="$OUTPUT_DIR" --go_opt=paths=source_relative \
            --go-grpc_out="$OUTPUT_DIR" --go-grpc_opt=paths=source_relative \
            gRPCModbusAdapter.Interface/src/main/proto/*.proto
+
+  pushd "$OUTPUT_DIR" > /dev/null
+
+  if [ ! -f "go.mod" ]; then
+      echo "🆕 Initializing new Go module..."
+      go mod init github.com/gregj77/gRPCModbusAdapter/grpc2modbus-sdk-go
+      go mod edit -go 1.26
+  fi
+  go mod tidy
+
+  popd > /dev/null
 else
     echo "⚠️ Interface proto directory not found, skipping..."
 fi
